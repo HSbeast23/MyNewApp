@@ -6,7 +6,8 @@ import {
   TouchableOpacity,
   StyleSheet,
   Alert,
-  ScrollView
+  ScrollView,
+  ActivityIndicator, // ✅ Added fallback loader
 } from 'react-native';
 import Slider from '@react-native-community/slider';
 import * as Location from 'expo-location';
@@ -18,9 +19,8 @@ import {
   Poppins_400Regular,
   Poppins_700Bold,
 } from '@expo-google-fonts/poppins';
-import AppLoading from 'expo-app-loading';
 
-export default function RequestBloodScreen({ navigation }) { // ✅ Must match your Drawer.Screen name!
+export default function RequestBloodScreen({ navigation }) {
   const [bloodGroup, setBloodGroup] = useState('');
   const [unitsNeeded, setUnitsNeeded] = useState(1);
   const [location, setLocation] = useState(null);
@@ -36,7 +36,11 @@ export default function RequestBloodScreen({ navigation }) { // ✅ Must match y
   });
 
   if (!fontsLoaded) {
-    return <AppLoading />;
+    return (
+      <View style={styles.loaderContainer}>
+        <ActivityIndicator size="large" color="#D32F2F" />
+      </View>
+    );
   }
 
   const handleLocate = async () => {
@@ -64,7 +68,7 @@ export default function RequestBloodScreen({ navigation }) { // ✅ Must match y
       return;
     }
     Alert.alert('Success', 'Blood request submitted!');
-    navigation.navigate('Home'); // ✅ This works because you have 'Home' in your Drawer!
+    navigation.navigate('Home');
   };
 
   return (
@@ -170,12 +174,13 @@ export default function RequestBloodScreen({ navigation }) { // ✅ Must match y
 
 const styles = StyleSheet.create({
   container: { flex: 1, padding: 20, backgroundColor: '#fff' },
+  loaderContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   title: {
     fontSize: 24,
     fontFamily: 'Poppins_700Bold',
     marginBottom: 20,
     textAlign: 'center',
-    marginTop: 40, // ✅ Keeps title pushed down
+    marginTop: 40,
   },
   label: {
     marginTop: 15,
