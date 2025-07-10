@@ -7,9 +7,13 @@ dist/
 web-build/
 expo-env.d.ts
 
-# ✅ Native build folders (Prebuild + EAS Build)
-android/
-ios/
+# ✅ Native build output folders (OK to ignore, keep source files)
+android/.gradle/
+android/app/build/
+android/build/
+
+ios/Pods/
+ios/build/
 
 # ✅ Metro bundler cache
 .metro-cache/

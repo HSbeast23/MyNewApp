@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -11,18 +11,12 @@ import {
 import { Ionicons, FontAwesome5 } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 
-// ✅ Firebase Auth
-import { auth } from '../services/auth'; // your auth.js
-import {
-  createUserWithEmailAndPassword,
-  GoogleAuthProvider,
-  signInWithCredential,
-} from 'firebase/auth';
+// ✅ Firebase Auth (ONLY ONE)
+import { GoogleAuthProvider, signInWithCredential, createUserWithEmailAndPassword } from 'firebase/auth';
+import { auth } from '../services/auth'; // ✅ your firebase.js
 
-// ✅ Expo Google Auth
-import * as Google from 'expo-auth-session/providers/google';
-import * as WebBrowser from 'expo-web-browser';
-WebBrowser.maybeCompleteAuthSession();
+// ✅ Native Google Sign-In
+import { GoogleSignin } from '@react-native-google-signin/google-signin';
 
 export default function SignUpScreen() {
   const [fullName, setFullName] = useState('');
@@ -35,30 +29,33 @@ export default function SignUpScreen() {
 
   const navigation = useNavigation();
 
-  // ✅ Google Auth request
-  const [request, response, promptAsync] = Google.useAuthRequest({
-    expoClientId: 'YOUR_EXPO_CLIENT_ID.apps.googleusercontent.com',
-    androidClientId: 'YOUR_ANDROID_CLIENT_ID.apps.googleusercontent.com',
-    iosClientId: 'YOUR_IOS_CLIENT_ID.apps.googleusercontent.com',
-  });
+  // ✅ 1️⃣ Configure Google Sign-In with your native CLIENT ID
+  useEffect(() => {
+    GoogleSignin.configure({
+      webClientId: '675390254350-eauqg0l6rrb8rdrm66a21p6tvusmn28q.apps.googleusercontent.com', // ✅ from your google-services.json
+      offlineAccess: true,
+    });
+  }, []);
 
-  React.useEffect(() => {
-    if (response?.type === 'success') {
-      const { id_token } = response.authentication;
-      const credential = GoogleAuthProvider.credential(id_token);
-      signInWithCredential(auth, credential)
-        .then(() => {
-          console.log('✅ Google Sign-In successful');
-          Alert.alert('Success', 'Signed in with Google!');
-          navigation.replace('MainDrawer');
-        })
-        .catch((error) => {
-          console.log(error);
-          Alert.alert('Error', error.message);
-        });
+  // ✅ 2️⃣ Native Google Sign-In flow
+  const handleGoogleSignIn = async () => {
+    try {
+      await GoogleSignin.hasPlayServices();
+      const userInfo = await GoogleSignin.signIn();
+      const { idToken } = await GoogleSignin.getTokens();
+
+      const googleCredential = GoogleAuthProvider.credential(idToken);
+      await signInWithCredential(auth, googleCredential);
+
+      Alert.alert('✅ Success', 'Signed in with Google!');
+      navigation.replace('MainDrawer');
+    } catch (error) {
+      console.error(error);
+      Alert.alert('❌ Google Sign-In Failed', error.message);
     }
-  }, [response]);
+  };
 
+  // ✅ 3️⃣ Email Sign-Up
   const handleSignUp = async () => {
     if (!fullName || !email || !password || !confirmPassword) {
       Alert.alert('Error', 'Please fill all fields');
@@ -79,11 +76,12 @@ export default function SignUpScreen() {
       Alert.alert('Success', 'Account created! Welcome to BloodLink!');
       navigation.replace('MainDrawer');
     } catch (error) {
-      console.log(error);
+      console.error(error);
       Alert.alert('Registration Failed', error.message);
     }
   };
 
+  // ✅ UI (unchanged)
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Sign Up</Text>
@@ -139,16 +137,14 @@ export default function SignUpScreen() {
         </TouchableOpacity>
       </View>
 
-      {/* ✅ Google Auth Button */}
       <TouchableOpacity
         style={styles.socialButton}
-        onPress={() => promptAsync()}
+        onPress={handleGoogleSignIn}
       >
         <FontAwesome5 name="google" size={24} color="black" />
         <Text style={styles.socialText}> Continue with Google</Text>
       </TouchableOpacity>
 
-      {/* Your existing Apple button */}
       <TouchableOpacity style={styles.socialButton}>
         <Image
           source={require('../../assets/apple.png')}
@@ -180,7 +176,6 @@ export default function SignUpScreen() {
   );
 }
 
-// ✅ Styles unchanged
 const styles = StyleSheet.create({
   container: {
     flex: 1,
