@@ -1,0 +1,41 @@
+# ✅ Node dependencies
+node_modules/
+
+# ✅ Expo local folders
+.expo/
+dist/
+web-build/
+expo-env.d.ts
+
+# ✅ Native build folders (Prebuild + EAS Build)
+android/
+ios/
+
+# ✅ Metro bundler cache
+.metro-cache/
+metro-cache/
+metro-health-check*
+
+# ✅ Debug logs
+npm-debug.*
+yarn-debug.*
+yarn-error.*
+
+# ✅ Certificates & keys
+*.jks
+*.keystore
+*.p8
+*.p12
+*.key
+*.mobileprovision
+*.pem
+
+# ✅ Environment files
+.env
+.env.*
+.env*.local
+
+# ✅ Misc
+*.orig.*
+.DS_Store
+*.tsbuildinfo
