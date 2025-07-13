@@ -19,7 +19,7 @@ import DonateBloodScreen from '../screens/DonateBloodScreen';
 import RequestBloodScreen from '../screens/RequestBloodScreen';
 import FounderScreen from '../screens/FounderScreen';
 import AdvisorScreen from '../screens/AdvisorScreen';
-import USaversNearScreen from '../screens/USaversNearScreen';
+import BloodLinkNearScreen from '../screens/BloodLinkNearScreen'; // ✅ updated name
 import MyProfileScreen from '../screens/MyProfileScreen';
 import ReferFriendScreen from '../screens/ReferFriendScreen';
 import DonateHistoryScreen from '../screens/DonateHistoryScreen';
@@ -58,7 +58,7 @@ export default function DrawerNavigator() {
       <Drawer.Screen name="RequestBlood" component={RequestBloodScreen} />
       <Drawer.Screen name="Founder" component={FounderScreen} />
       <Drawer.Screen name="Advisor" component={AdvisorScreen} />
-      <Drawer.Screen name="USavers Near" component={USaversNearScreen} />
+      <Drawer.Screen name="BloodLink Near" component={BloodLinkNearScreen} /> 
       <Drawer.Screen name="My Profile" component={MyProfileScreen} />
       <Drawer.Screen name="Refer Friend" component={ReferFriendScreen} />
       <Drawer.Screen name="Donate History" component={DonateHistoryScreen} />
@@ -110,7 +110,7 @@ function CustomDrawerContent(props) {
   );
 }
 
-// ✅ Label names
+// ✅ Label names (only adjust for special cases)
 function getLabel(name) {
   switch (name) {
     case 'DonateBlood': return 'Donate Blood';
@@ -127,7 +127,7 @@ function getIcon(name, color, size) {
     case 'RequestBlood': return <Ionicons name="water-outline" size={size} color={color} />;
     case 'Founder': return <FontAwesome5 name="user-tie" size={size} color={color} />;
     case 'Advisor': return <Ionicons name="people-outline" size={size} color={color} />;
-    case 'USavers Near': return <Ionicons name="location-outline" size={size} color={color} />;
+    case 'BloodLink Near': return <Ionicons name="location-outline" size={size} color={color} />; // ✅ updated case
     case 'My Profile': return <Ionicons name="person-circle-outline" size={size} color={color} />;
     case 'Refer Friend': return <Ionicons name="person-add-outline" size={size} color={color} />;
     case 'Donate History': return <Ionicons name="time-outline" size={size} color={color} />;
@@ -174,4 +174,3 @@ const styles = StyleSheet.create({
     fontFamily: 'Poppins_400Regular',
   },
 });
-

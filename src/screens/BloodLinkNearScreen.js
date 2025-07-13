@@ -4,7 +4,7 @@ import { View, Text, StyleSheet } from 'react-native';
 export default function USaversNearScreen() {
   return (
     <View style={styles.container}>
-      <Text style={styles.text}>USavers Near Screen</Text>
+      <Text style={styles.text}>BloodLink Near Screen</Text>
     </View>
   );
 }

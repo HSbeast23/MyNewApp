@@ -1,26 +1,26 @@
 import React, { useEffect } from 'react';
 import { View, Text, StyleSheet, Alert } from 'react-native';
+import { signOutUser } from '../services/auth'; // ✅ this helper signs out Google & Firebase!
+import { useNavigation } from '@react-navigation/native';
 
-// ✅ Import Firebase Auth
-import { auth } from '../services/auth'; // adjust the path!
-import { signOut } from 'firebase/auth';
+export default function LogoutScreen() {
+  const navigation = useNavigation();
 
-export default function LogoutScreen({ navigation }) {
   useEffect(() => {
     const doLogout = async () => {
       try {
-        await signOut(auth);
-        console.log('✅ User signed out.');
+        await signOutUser();
+        console.log('✅ User signed out from Google & Firebase.');
         Alert.alert('Logged Out', 'You have been signed out.');
-        navigation.replace('Login'); // ✅ Go back to LoginScreen
+        navigation.replace('Login'); // ✅ or 'SignUp'
       } catch (error) {
         console.log(error);
         Alert.alert('Error', 'Could not sign out.');
       }
     };
-
+````
     doLogout();
-  }, [navigation]);
+  }, []);
 
   return (
     <View style={styles.container}>

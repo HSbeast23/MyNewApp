@@ -11,11 +11,12 @@ import {
 import { Ionicons, FontAwesome5 } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 
-// ✅ Firebase Auth (ONLY ONE)
-import { GoogleAuthProvider, signInWithCredential, createUserWithEmailAndPassword } from 'firebase/auth';
-import { auth } from '../services/auth'; // ✅ your firebase.js
-
-// ✅ Native Google Sign-In
+import {
+  GoogleAuthProvider,
+  signInWithCredential,
+  createUserWithEmailAndPassword,
+} from 'firebase/auth';
+import { auth } from '../services/auth';
 import { GoogleSignin } from '@react-native-google-signin/google-signin';
 
 export default function SignUpScreen() {
@@ -29,18 +30,17 @@ export default function SignUpScreen() {
 
   const navigation = useNavigation();
 
-  // ✅ 1️⃣ Configure Google Sign-In with your native CLIENT ID
   useEffect(() => {
     GoogleSignin.configure({
-      webClientId: '675390254350-eauqg0l6rrb8rdrm66a21p6tvusmn28q.apps.googleusercontent.com', // ✅ from your google-services.json
+      // ✅ Use your updated Web OAuth Client ID here
+      webClientId: "675390254350-damalk9bl472c3qr3pan12krc2gano7u.apps.googleusercontent.com",
       offlineAccess: true,
     });
   }, []);
 
-  // ✅ 2️⃣ Native Google Sign-In flow
   const handleGoogleSignIn = async () => {
     try {
-      await GoogleSignin.hasPlayServices();
+      await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
       const userInfo = await GoogleSignin.signIn();
       const { idToken } = await GoogleSignin.getTokens();
 
@@ -50,12 +50,11 @@ export default function SignUpScreen() {
       Alert.alert('✅ Success', 'Signed in with Google!');
       navigation.replace('MainDrawer');
     } catch (error) {
-      console.error(error);
+      console.error('Google Sign-In Error:', error);
       Alert.alert('❌ Google Sign-In Failed', error.message);
     }
   };
 
-  // ✅ 3️⃣ Email Sign-Up
   const handleSignUp = async () => {
     if (!fullName || !email || !password || !confirmPassword) {
       Alert.alert('Error', 'Please fill all fields');
@@ -76,65 +75,81 @@ export default function SignUpScreen() {
       Alert.alert('Success', 'Account created! Welcome to BloodLink!');
       navigation.replace('MainDrawer');
     } catch (error) {
-      console.error(error);
+      console.error('Sign Up Error:', error);
       Alert.alert('Registration Failed', error.message);
     }
   };
 
-  // ✅ UI (unchanged)
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Sign Up</Text>
 
-      <TextInput
-        placeholder="Full Name"
-        value={fullName}
-        onChangeText={setFullName}
-        style={styles.input}
-      />
-
-      <TextInput
-        placeholder="Email"
-        value={email}
-        onChangeText={setEmail}
-        style={styles.input}
-        keyboardType="email-address"
-      />
-
-      <View style={styles.passwordContainer}>
+      <View style={styles.inputContainer}>
+        <Text style={styles.label}>Full Name</Text>
         <TextInput
-          placeholder="Password"
-          value={password}
-          onChangeText={setPassword}
-          secureTextEntry={secureText}
-          style={styles.inputPassword}
+          placeholder="Enter your full name"
+          placeholderTextColor="#888"
+          value={fullName}
+          onChangeText={setFullName}
+          style={styles.input}
         />
-        <TouchableOpacity onPress={() => setSecureText(!secureText)}>
-          <Ionicons
-            name={secureText ? 'eye-off' : 'eye'}
-            size={22}
-            color="gray"
-          />
-        </TouchableOpacity>
       </View>
 
-      <View style={styles.passwordContainer}>
+      <View style={styles.inputContainer}>
+        <Text style={styles.label}>Email</Text>
         <TextInput
-          placeholder="Confirm Password"
-          value={confirmPassword}
-          onChangeText={setConfirmPassword}
-          secureTextEntry={secureTextConfirm}
-          style={styles.inputPassword}
+          placeholder="Enter your email"
+          placeholderTextColor="#888"
+          value={email}
+          onChangeText={setEmail}
+          keyboardType="email-address"
+          autoCapitalize="none"
+          style={styles.input}
         />
-        <TouchableOpacity
-          onPress={() => setSecureTextConfirm(!secureTextConfirm)}
-        >
-          <Ionicons
-            name={secureTextConfirm ? 'eye-off' : 'eye'}
-            size={22}
-            color="gray"
+      </View>
+
+      <View style={styles.inputContainer}>
+        <Text style={styles.label}>Password</Text>
+        <View style={styles.passwordContainer}>
+          <TextInput
+            placeholder="Enter your password"
+            placeholderTextColor="#888"
+            value={password}
+            onChangeText={setPassword}
+            secureTextEntry={secureText}
+            autoCapitalize="none"
+            style={styles.inputPassword}
           />
-        </TouchableOpacity>
+          <TouchableOpacity onPress={() => setSecureText(!secureText)}>
+            <Ionicons
+              name={secureText ? 'eye-off' : 'eye'}
+              size={22}
+              color="gray"
+            />
+          </TouchableOpacity>
+        </View>
+      </View>
+
+      <View style={styles.inputContainer}>
+        <Text style={styles.label}>Confirm Password</Text>
+        <View style={styles.passwordContainer}>
+          <TextInput
+            placeholder="Re-enter your password"
+            placeholderTextColor="#888"
+            value={confirmPassword}
+            onChangeText={setConfirmPassword}
+            secureTextEntry={secureTextConfirm}
+            autoCapitalize="none"
+            style={styles.inputPassword}
+          />
+          <TouchableOpacity onPress={() => setSecureTextConfirm(!secureTextConfirm)}>
+            <Ionicons
+              name={secureTextConfirm ? 'eye-off' : 'eye'}
+              size={22}
+              color="gray"
+            />
+          </TouchableOpacity>
+        </View>
       </View>
 
       <TouchableOpacity
@@ -164,8 +179,7 @@ export default function SignUpScreen() {
           color="black"
         />
         <Text style={styles.checkboxText}>
-          {' '}
-          I agree to the Terms & Privacy Policy
+          {' '}I agree to the Terms & Privacy Policy
         </Text>
       </TouchableOpacity>
 
@@ -188,11 +202,19 @@ const styles = StyleSheet.create({
     marginBottom: 30,
     fontFamily: 'Poppins_700Bold',
   },
+  inputContainer: {
+    marginBottom: 15,
+  },
+  label: {
+    fontSize: 14,
+    color: '#000',
+    marginBottom: 4,
+    fontFamily: 'Poppins_400Regular',
+  },
   input: {
     backgroundColor: '#f2f2f2',
     padding: 15,
     borderRadius: 8,
-    marginBottom: 15,
     fontFamily: 'Poppins_400Regular',
   },
   passwordContainer: {
@@ -201,7 +223,6 @@ const styles = StyleSheet.create({
     backgroundColor: '#f2f2f2',
     padding: 15,
     borderRadius: 8,
-    marginBottom: 15,
     justifyContent: 'space-between',
   },
   inputPassword: {

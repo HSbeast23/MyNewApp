@@ -1,45 +1,37 @@
 {
   "expo": {
     "name": "BloodLink",
-    "slug": "BloodLink",
+    "slug": "MyNewApp",
     "version": "1.0.0",
     "orientation": "portrait",
-
     "icon": "./assets/icon.png",
-
     "userInterfaceStyle": "light",
     "newArchEnabled": true,
     "scheme": "mynewapp",
-
     "splash": {
       "image": "./assets/splash-icon.png",
       "resizeMode": "contain",
       "backgroundColor": "#ffffff"
     },
-
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.haarhish.MyNewApp"
     },
-
     "android": {
       "package": "com.haarhish.MyNewApp",
-
       "googleServicesFile": "./android/app/google-services.json",
-      "permissions": ["com.google.android.gms.permission.AD_ID"],
-
+      "permissions": [
+        "com.google.android.gms.permission.AD_ID"
+      ],
       "adaptiveIcon": {
-        "foregroundImage": "./assets/icon.png",   
+        "foregroundImage": "./assets/icon.png",
         "backgroundColor": "#ffffff"
       },
-
       "edgeToEdgeEnabled": true
     },
-
     "web": {
       "favicon": "./assets/favicon.png"
     },
-
     "plugins": [
       [
         "expo-build-properties",
@@ -55,11 +47,14 @@
       "expo-web-browser",
       "@react-native-google-signin/google-signin"
     ],
-
+    "packagerOpts": {
+      "hostType": "lan"
+    },
     "extra": {
       "eas": {
         "projectId": "f39544fe-e9d3-46ab-b253-4ecd6a0a4ede"
       }
-    }
+    },
+    "owner": "haarhish"
   }
 }

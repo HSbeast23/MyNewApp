@@ -14,11 +14,11 @@
       },
       "oauth_client": [
         {
-          "client_id": "675390254350-eauqg0l6rrb8rdrm66a21p6tvusmn28q.apps.googleusercontent.com",
+          "client_id": "675390254350-t6bj9fg2ete8hil272tc6538g764rer6.apps.googleusercontent.com",
           "client_type": 1,
           "android_info": {
             "package_name": "com.haarhish.MyNewApp",
-            "certificate_hash": "62d6a4c3012cf6262224031c852afe69e1acb5db"
+            "certificate_hash": "04fb7d53499bad54abdb94ac9a8d681070b540e0"
           }
         },
         {

@@ -1,13 +1,17 @@
-// DonateBloodScreen.js ✅
-// Make sure file name matches!
-
 import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert } from 'react-native';
+import {
+  View,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  StyleSheet,
+  Alert,
+} from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { Picker } from '@react-native-picker/picker';
 import * as Location from 'expo-location';
 
-export default function DonateBloodScreen() { // ✅ Use the same name!
+export default function DonateBloodScreen() {
   const navigation = useNavigation();
 
   const [donorName, setDonorName] = useState('');
@@ -57,7 +61,7 @@ export default function DonateBloodScreen() { // ✅ Use the same name!
     }
 
     Alert.alert('Success', 'Thank you for registering as a donor!');
-    navigation.navigate('Home'); // ✅ You already have Home in your drawer!
+    navigation.navigate('Home');
   };
 
   return (
@@ -72,12 +76,18 @@ export default function DonateBloodScreen() { // ✅ Use the same name!
         onChangeText={setDonorName}
       />
 
-      <View style={styles.pickerContainer}>
+      <View style={styles.input}>
+        {bloodGroup === '' && (
+          <Text style={styles.placeholderText}>Select Blood Group</Text>
+        )}
         <Picker
           selectedValue={bloodGroup}
           onValueChange={(itemValue) => setBloodGroup(itemValue)}
+          style={styles.picker}
+          itemStyle={styles.pickerItem}
+          dropdownIconColor="#000"
         >
-          <Picker.Item label="Select Blood Group" value="" />
+          <Picker.Item label="" value="" />
           <Picker.Item label="A+" value="A+" />
           <Picker.Item label="A-" value="A-" />
           <Picker.Item label="B+" value="B+" />
@@ -125,7 +135,14 @@ export default function DonateBloodScreen() { // ✅ Use the same name!
           ]}
           onPress={() => setExperience('First Time')}
         >
-          <Text style={styles.optionText}>First Time</Text>
+          <Text
+            style={[
+              styles.optionText,
+              experience === 'First Time' && styles.activeOptionText,
+            ]}
+          >
+            First Time
+          </Text>
         </TouchableOpacity>
 
         <TouchableOpacity
@@ -135,7 +152,14 @@ export default function DonateBloodScreen() { // ✅ Use the same name!
           ]}
           onPress={() => setExperience('Alderly Experienced')}
         >
-          <Text style={styles.optionText}>Alderly Experienced</Text>
+          <Text
+            style={[
+              styles.optionText,
+              experience === 'Alderly Experienced' && styles.activeOptionText,
+            ]}
+          >
+            Alderly Experienced
+          </Text>
         </TouchableOpacity>
       </View>
 
@@ -163,7 +187,8 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#ddd',
     borderRadius: 10,
-    padding: 16,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
     marginBottom: 15,
     fontFamily: 'Poppins_400Regular',
     color: '#000',
@@ -172,11 +197,23 @@ const styles = StyleSheet.create({
     fontFamily: 'Poppins_400Regular',
     color: '#555',
   },
-  pickerContainer: {
-    borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 10,
-    marginBottom: 15,
+  placeholderText: {
+    position: 'absolute',
+    top: 12,
+    left: 16,
+    fontFamily: 'Poppins_400Regular',
+    color: '#555',
+    zIndex: 1,
+  },
+  picker: {
+    height: 50,
+    width: '100%',
+    color: '#000',
+    fontFamily: 'Poppins_400Regular',
+  },
+  pickerItem: {
+    fontFamily: 'Poppins_400Regular',
+    color: '#000',
   },
   buttonRow: {
     flexDirection: 'row',
@@ -198,6 +235,10 @@ const styles = StyleSheet.create({
   optionText: {
     color: '#000',
     fontFamily: 'Poppins_400Regular',
+  },
+  activeOptionText: {
+    color: '#fff',
+    fontFamily: 'Poppins_700Bold',
   },
   submitButton: {
     backgroundColor: '#D32F2F',
