@@ -6,8 +6,6 @@
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
-    "newArchEnabled": true,
-    "scheme": "mynewapp",
     "splash": {
       "image": "./assets/splash-icon.png",
       "resizeMode": "contain",
@@ -15,19 +13,16 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.haarhish.MyNewApp"
+      "bundleIdentifier": "com.haarhish.BloodLink"
     },
     "android": {
-      "package": "com.haarhish.MyNewApp",
+      "package": "com.haarhish.BloodLink",
       "googleServicesFile": "./android/app/google-services.json",
-      "permissions": [
-        "com.google.android.gms.permission.AD_ID"
-      ],
       "adaptiveIcon": {
         "foregroundImage": "./assets/icon.png",
         "backgroundColor": "#ffffff"
       },
-      "edgeToEdgeEnabled": true
+      "permissions": []
     },
     "web": {
       "favicon": "./assets/favicon.png"
@@ -37,19 +32,16 @@
         "expo-build-properties",
         {
           "android": {
-            "compileSdkVersion": 35,
-            "targetSdkVersion": 35,
-            "buildToolsVersion": "35.0.0"
+            "compileSdkVersion": 34,
+            "targetSdkVersion": 34,
+            "minSdkVersion": 24
           }
         }
       ],
       "expo-font",
-      "expo-web-browser",
-      "@react-native-google-signin/google-signin"
+      "expo-web-browser"
     ],
-    "packagerOpts": {
-      "hostType": "lan"
-    },
+    "assetBundlePatterns": ["**/*"],
     "extra": {
       "eas": {
         "projectId": "f39544fe-e9d3-46ab-b253-4ecd6a0a4ede"

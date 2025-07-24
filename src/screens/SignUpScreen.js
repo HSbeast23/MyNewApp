@@ -1,3 +1,5 @@
+// ✅ src/screens/SignUpScreen.js
+
 import React, { useState, useEffect } from 'react';
 import {
   View,
@@ -5,7 +7,6 @@ import {
   TextInput,
   TouchableOpacity,
   StyleSheet,
-  Image,
   Alert,
 } from 'react-native';
 import { Ionicons, FontAwesome5 } from '@expo/vector-icons';
@@ -16,7 +17,9 @@ import {
   signInWithCredential,
   createUserWithEmailAndPassword,
 } from 'firebase/auth';
-import { auth } from '../services/auth';
+import { getDoc, doc } from 'firebase/firestore';
+
+import { auth, db } from '../services/auth';
 import { GoogleSignin } from '@react-native-google-signin/google-signin';
 
 export default function SignUpScreen() {
@@ -32,7 +35,6 @@ export default function SignUpScreen() {
 
   useEffect(() => {
     GoogleSignin.configure({
-      // ✅ Use your updated Web OAuth Client ID here
       webClientId: "675390254350-damalk9bl472c3qr3pan12krc2gano7u.apps.googleusercontent.com",
       offlineAccess: true,
     });
@@ -45,10 +47,22 @@ export default function SignUpScreen() {
       const { idToken } = await GoogleSignin.getTokens();
 
       const googleCredential = GoogleAuthProvider.credential(idToken);
-      await signInWithCredential(auth, googleCredential);
+      const userCredential = await signInWithCredential(auth, googleCredential);
 
       Alert.alert('✅ Success', 'Signed in with Google!');
-      navigation.replace('MainDrawer');
+
+      const uid = userCredential.user.uid;
+      const userDocRef = doc(db, 'users', uid);
+      const userDocSnap = await getDoc(userDocRef);
+
+      if (userDocSnap.exists()) {
+        console.log('✅ Personal data exists.');
+        navigation.replace('MainDrawer');
+      } else {
+        console.log('⚠️ No personal data found.');
+        navigation.replace('PersonalDataForm');
+      }
+
     } catch (error) {
       console.error('Google Sign-In Error:', error);
       Alert.alert('❌ Google Sign-In Failed', error.message);
@@ -70,10 +84,22 @@ export default function SignUpScreen() {
     }
 
     try {
-      await createUserWithEmailAndPassword(auth, email, password);
+      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
       console.log('✅ User registered:', { fullName, email });
-      Alert.alert('Success', 'Account created! Welcome to BloodLink!');
-      navigation.replace('MainDrawer');
+      Alert.alert('Success', 'Account created!');
+
+      const uid = userCredential.user.uid;
+      const userDocRef = doc(db, 'users', uid);
+      const userDocSnap = await getDoc(userDocRef);
+
+      if (userDocSnap.exists()) {
+        console.log('✅ Personal data exists.');
+        navigation.replace('MainDrawer');
+      } else {
+        console.log('⚠️ No personal data found.');
+        navigation.replace('PersonalDataForm');
+      }
+
     } catch (error) {
       console.error('Sign Up Error:', error);
       Alert.alert('Registration Failed', error.message);
@@ -152,21 +178,9 @@ export default function SignUpScreen() {
         </View>
       </View>
 
-      <TouchableOpacity
-        style={styles.socialButton}
-        onPress={handleGoogleSignIn}
-      >
+      <TouchableOpacity style={styles.socialButton} onPress={handleGoogleSignIn}>
         <FontAwesome5 name="google" size={24} color="black" />
         <Text style={styles.socialText}> Continue with Google</Text>
-      </TouchableOpacity>
-
-      <TouchableOpacity style={styles.socialButton}>
-        <Image
-          source={require('../../assets/apple.png')}
-          style={{ width: 24, height: 24, marginRight: 8 }}
-          resizeMode="contain"
-        />
-        <Text style={styles.socialText}> Continue with Apple</Text>
       </TouchableOpacity>
 
       <TouchableOpacity
@@ -191,26 +205,15 @@ export default function SignUpScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    justifyContent: 'center',
-    padding: 20,
-  },
+  container: { flex: 1, justifyContent: 'center', padding: 20 },
   title: {
     fontSize: 28,
     alignSelf: 'center',
     marginBottom: 30,
     fontFamily: 'Poppins_700Bold',
   },
-  inputContainer: {
-    marginBottom: 15,
-  },
-  label: {
-    fontSize: 14,
-    color: '#000',
-    marginBottom: 4,
-    fontFamily: 'Poppins_400Regular',
-  },
+  inputContainer: { marginBottom: 15 },
+  label: { fontSize: 14, color: '#000', marginBottom: 4, fontFamily: 'Poppins_500Medium' },
   input: {
     backgroundColor: '#f2f2f2',
     padding: 15,
@@ -235,31 +238,20 @@ const styles = StyleSheet.create({
     backgroundColor: '#eee',
     padding: 12,
     borderRadius: 8,
-    marginBottom: 12,
+    marginVertical: 12,
   },
-  socialText: {
-    fontSize: 16,
-    fontFamily: 'Poppins_400Regular',
-  },
+  socialText: { fontSize: 16, fontFamily: 'Poppins_500Medium' },
   checkboxContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     marginVertical: 20,
   },
-  checkboxText: {
-    fontSize: 14,
-    marginLeft: 8,
-    fontFamily: 'Poppins_400Regular',
-  },
+  checkboxText: { fontSize: 14, marginLeft: 8, fontFamily: 'Poppins_400Regular' },
   button: {
-    backgroundColor: 'red',
+    backgroundColor: '#b71c1c',
     padding: 16,
     borderRadius: 8,
     alignItems: 'center',
   },
-  buttonText: {
-    color: '#fff',
-    fontFamily: 'Poppins_700Bold',
-    fontSize: 16,
-  },
+  buttonText: { color: '#fff', fontSize: 16, fontFamily: 'Poppins_600SemiBold' },
 });

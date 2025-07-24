@@ -1,3 +1,5 @@
+// ✅ src/screens/DonateBloodForm.js
+
 import React, { useState } from 'react';
 import {
   View,
@@ -6,166 +8,325 @@ import {
   TouchableOpacity,
   StyleSheet,
   Alert,
+  ScrollView,
+  Modal,
+  FlatList,
+  Switch,
 } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
-import { Picker } from '@react-native-picker/picker';
-import * as Location from 'expo-location';
 
-export default function DonateBloodScreen() {
-  const navigation = useNavigation();
+import { auth, db } from '../services/auth';
+import { addDoc, collection } from 'firebase/firestore';
+import { serverTimestamp } from 'firebase/firestore';
 
-  const [donorName, setDonorName] = useState('');
-  const [bloodGroup, setBloodGroup] = useState('');
-  const [age, setAge] = useState('');
+
+export default function DonateBloodForm({ navigation }) {
+  const [name, setName] = useState('');
+  const [city, setCity] = useState('');
   const [contactNumber, setContactNumber] = useState('');
-  const [location, setLocation] = useState(null);
-  const [experience, setExperience] = useState('');
+  const [bloodGroup, setBloodGroup] = useState('');
+  const [gender, setGender] = useState('');
+  const [age, setAge] = useState('');
+  const [medicalCondition, setMedicalCondition] = useState('');
+  const [isFirstTime, setIsFirstTime] = useState(false);
+  const [isElderlyExperienced, setIsElderlyExperienced] = useState(false);
 
-  const handleLocate = async () => {
-    let { status } = await Location.requestForegroundPermissionsAsync();
-    if (status !== 'granted') {
-      Alert.alert('Permission Denied', 'Location permission is required.');
-      return;
-    }
+  const [showBloodModal, setShowBloodModal] = useState(false);
+  const [showGenderModal, setShowGenderModal] = useState(false);
+  const [showCityModal, setShowCityModal] = useState(false);
+  const [showConditionModal, setShowConditionModal] = useState(false);
 
-    let loc = await Location.getCurrentPositionAsync({});
-    setLocation({
-      latitude: loc.coords.latitude,
-      longitude: loc.coords.longitude,
-    });
-  };
+  const bloodGroups = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'];
+  const genders = ['Male', 'Female'];
+  const cities = [
+    'Chennai', 'Coimbatore', 'Madurai', 'Tiruchirappalli', 'Salem',
+    'Tirunelveli', 'Vellore', 'Thoothukudi', 'Erode', 'Dindigul',
+    'Thanjavur', 'Kanchipuram', 'Karur', 'Namakkal', 'Cuddalore',
+    'Nagapattinam', 'Tiruvannamalai', 'Pudukkottai', 'Virudhunagar', 'Sivaganga',
+  ];
 
-  const handleSubmit = () => {
-    if (!donorName || !bloodGroup || !age || !contactNumber || !location || !experience) {
+  const conditionList = [
+    'None',
+    'Diabetes',
+    'Heart Disease',
+    'Cancer',
+    'Hepatitis B/C',
+    'HIV/AIDS',
+    'Tuberculosis',
+    'Kidney Disease',
+    'Epilepsy',
+    'Recent Surgery',
+    'Currently on Antibiotics',
+    'Pregnant (if applicable)',
+  ];
+
+  const validatePhone = (number) => /^[6-9]\d{9}$/.test(number);
+
+  const handleSubmit = async () => {
+    if (!name || !city || !contactNumber || !bloodGroup || !gender || !age || !medicalCondition) {
       Alert.alert('Error', 'Please fill in all fields.');
       return;
     }
 
-    const donorAge = parseInt(age);
-    if (isNaN(donorAge) || donorAge < 18 || donorAge > 65) {
-      Alert.alert('Invalid Age', 'Donor age must be between 18 and 65.');
-      return;
-    }
-
-    if (experience === 'First Time' && donorAge >= 60) {
+    if (medicalCondition !== 'None') {
       Alert.alert(
-        'Age Restriction',
-        'First time donors above or equal to 60 years cannot donate blood.'
+        'Ineligible to Donate',
+        'Based on your selected medical condition, you are not eligible to donate blood at this time.'
       );
       return;
     }
 
-    if (!/^[6-9]\d{9}$/.test(contactNumber)) {
-      Alert.alert('Invalid Number', 'Please enter a valid 10-digit Indian mobile number.');
+    if (!validatePhone(contactNumber)) {
+      Alert.alert('Invalid Phone', 'Please enter a valid Indian mobile number.');
       return;
     }
 
-    Alert.alert('Success', 'Thank you for registering as a donor!');
-    navigation.navigate('Home');
+    const donorAge = parseInt(age);
+    if (donorAge >= 60 && isFirstTime && !isElderlyExperienced) {
+      Alert.alert(
+        'Ineligible',
+        'Elderly first-time donors (age 60+) cannot donate blood.'
+      );
+      return;
+    }
+
+    try {
+      const uid = auth.currentUser?.uid;
+      if (!uid) {
+        Alert.alert('Error', 'User not authenticated.');
+        return;
+      }
+
+      await addDoc(collection(db, 'BloodDonors'), {
+        name,
+        city,
+        contactNumber,
+        bloodGroup,
+        gender,
+        age: donorAge,
+        isFirstTime,
+        isElderlyExperienced,
+        medicalCondition,
+        createdAt: serverTimestamp(),
+        userId: uid,
+      });
+
+      Alert.alert('Success', 'Your blood donation offer has been submitted!');
+
+      setName('');
+      setCity('');
+      setContactNumber('');
+      setBloodGroup('');
+      setGender('');
+      setAge('');
+      setMedicalCondition('');
+      setIsFirstTime(false);
+      setIsElderlyExperienced(false);
+
+      navigation.navigate('Home');
+
+    } catch (error) {
+      console.error('Error submitting donation:', error);
+      Alert.alert('Error', 'Failed to submit donation.');
+    }
   };
 
   return (
     <View style={styles.container}>
-      <Text style={styles.heading}>Become a Blood Donor</Text>
+      <ScrollView contentContainerStyle={styles.scrollContent}>
+        <View style={styles.card}>
+          <Text style={styles.title}>Donate Blood</Text>
 
-      <TextInput
-        style={styles.input}
-        placeholder="Enter Your Name"
-        placeholderTextColor="#555"
-        value={donorName}
-        onChangeText={setDonorName}
-      />
+          <TextInput
+            style={styles.input}
+            placeholder="Full Name"
+            placeholderTextColor="#888"
+            value={name}
+            onChangeText={setName}
+          />
 
-      <View style={styles.input}>
-        {bloodGroup === '' && (
-          <Text style={styles.placeholderText}>Select Blood Group</Text>
-        )}
-        <Picker
-          selectedValue={bloodGroup}
-          onValueChange={(itemValue) => setBloodGroup(itemValue)}
-          style={styles.picker}
-          itemStyle={styles.pickerItem}
-          dropdownIconColor="#000"
-        >
-          <Picker.Item label="" value="" />
-          <Picker.Item label="A+" value="A+" />
-          <Picker.Item label="A-" value="A-" />
-          <Picker.Item label="B+" value="B+" />
-          <Picker.Item label="B-" value="B-" />
-          <Picker.Item label="AB+" value="AB+" />
-          <Picker.Item label="AB-" value="AB-" />
-          <Picker.Item label="O+" value="O+" />
-          <Picker.Item label="O-" value="O-" />
-        </Picker>
-      </View>
+          <TouchableOpacity onPress={() => setShowBloodModal(true)}>
+            <View style={styles.dropdown}>
+              <Text style={styles.dropdownText}>
+                {bloodGroup ? `Blood Group: ${bloodGroup}` : 'Select Blood Group'}
+              </Text>
+            </View>
+          </TouchableOpacity>
 
-      <TextInput
-        style={styles.input}
-        placeholder="Enter Your Age"
-        placeholderTextColor="#555"
-        keyboardType="numeric"
-        maxLength={2}
-        value={age}
-        onChangeText={setAge}
-      />
+          <TouchableOpacity onPress={() => setShowGenderModal(true)}>
+            <View style={styles.dropdown}>
+              <Text style={styles.dropdownText}>
+                {gender ? `Gender: ${gender}` : 'Select Gender'}
+              </Text>
+            </View>
+          </TouchableOpacity>
 
-      <TextInput
-        style={styles.input}
-        placeholder="Your Contact Number"
-        placeholderTextColor="#555"
-        keyboardType="numeric"
-        maxLength={10}
-        value={contactNumber}
-        onChangeText={setContactNumber}
-      />
+          <TouchableOpacity onPress={() => setShowCityModal(true)}>
+            <View style={styles.dropdown}>
+              <Text style={styles.dropdownText}>
+                {city ? `City: ${city}` : 'Select City'}
+              </Text>
+            </View>
+          </TouchableOpacity>
 
-      <TouchableOpacity style={styles.input} onPress={handleLocate}>
-        <Text style={styles.inputText}>
-          {location
-            ? `Lat: ${location.latitude.toFixed(4)}, Long: ${location.longitude.toFixed(4)}`
-            : 'Auto-locate or pin on map'}
-        </Text>
-      </TouchableOpacity>
+          <TextInput
+            style={styles.input}
+            placeholder="Mobile Number"
+            placeholderTextColor="#888"
+            keyboardType="numeric"
+            maxLength={10}
+            value={contactNumber}
+            onChangeText={setContactNumber}
+          />
 
-      <View style={styles.buttonRow}>
-        <TouchableOpacity
-          style={[
-            styles.optionButton,
-            experience === 'First Time' && styles.activeOption,
-          ]}
-          onPress={() => setExperience('First Time')}
-        >
-          <Text
-            style={[
-              styles.optionText,
-              experience === 'First Time' && styles.activeOptionText,
-            ]}
-          >
-            First Time
-          </Text>
-        </TouchableOpacity>
+          <TextInput
+            style={styles.input}
+            placeholder="Age"
+            placeholderTextColor="#888"
+            keyboardType="numeric"
+            value={age}
+            onChangeText={setAge}
+          />
 
-        <TouchableOpacity
-          style={[
-            styles.optionButton,
-            experience === 'Alderly Experienced' && styles.activeOption,
-          ]}
-          onPress={() => setExperience('Alderly Experienced')}
-        >
-          <Text
-            style={[
-              styles.optionText,
-              experience === 'Alderly Experienced' && styles.activeOptionText,
-            ]}
-          >
-            Alderly Experienced
-          </Text>
-        </TouchableOpacity>
-      </View>
+          <TouchableOpacity onPress={() => setShowConditionModal(true)}>
+            <View style={styles.dropdown}>
+              <Text style={styles.dropdownText}>
+                {medicalCondition
+                  ? `Medical Condition: ${medicalCondition}`
+                  : 'Select Medical Condition'}
+              </Text>
+            </View>
+          </TouchableOpacity>
 
-      <TouchableOpacity style={styles.submitButton} onPress={handleSubmit}>
-        <Text style={styles.submitButtonText}>Become a Donor</Text>
-      </TouchableOpacity>
+          <View style={styles.switchRow}>
+            <Text style={styles.switchLabel}>First Time Donor?</Text>
+            <Switch
+              value={isFirstTime}
+              onValueChange={setIsFirstTime}
+              trackColor={{ false: '#ccc', true: '#b71c1c' }}
+              thumbColor="#fff"
+            />
+          </View>
+
+          <View style={styles.switchRow}>
+            <Text style={styles.switchLabel}>Elderly Experienced?</Text>
+            <Switch
+              value={isElderlyExperienced}
+              onValueChange={setIsElderlyExperienced}
+              trackColor={{ false: '#ccc', true: '#b71c1c' }}
+              thumbColor="#fff"
+            />
+          </View>
+
+          <TouchableOpacity style={styles.button} onPress={handleSubmit}>
+            <Text style={styles.buttonText}>Donate Blood</Text>
+          </TouchableOpacity>
+        </View>
+      </ScrollView>
+
+      {/* Modals (unchanged): Blood Group, Gender, City, Condition */}
+      <Modal visible={showBloodModal} animationType="slide" transparent>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Select Blood Group</Text>
+            <FlatList
+              data={bloodGroups}
+              keyExtractor={(item) => item}
+              renderItem={({ item }) => (
+                <TouchableOpacity
+                  style={styles.modalOption}
+                  onPress={() => {
+                    setBloodGroup(item);
+                    setShowBloodModal(false);
+                  }}
+                >
+                  <Text style={styles.modalOptionText}>{item}</Text>
+                </TouchableOpacity>
+              )}
+            />
+            <TouchableOpacity onPress={() => setShowBloodModal(false)}>
+              <Text style={styles.modalClose}>Close</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      <Modal visible={showGenderModal} animationType="slide" transparent>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Select Gender</Text>
+            <FlatList
+              data={genders}
+              keyExtractor={(item) => item}
+              renderItem={({ item }) => (
+                <TouchableOpacity
+                  style={styles.modalOption}
+                  onPress={() => {
+                    setGender(item);
+                    setShowGenderModal(false);
+                  }}
+                >
+                  <Text style={styles.modalOptionText}>{item}</Text>
+                </TouchableOpacity>
+              )}
+            />
+            <TouchableOpacity onPress={() => setShowGenderModal(false)}>
+              <Text style={styles.modalClose}>Close</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      <Modal visible={showCityModal} animationType="slide" transparent>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Select City</Text>
+            <FlatList
+              data={cities}
+              keyExtractor={(item) => item}
+              renderItem={({ item }) => (
+                <TouchableOpacity
+                  style={styles.modalOption}
+                  onPress={() => {
+                    setCity(item);
+                    setShowCityModal(false);
+                  }}
+                >
+                  <Text style={styles.modalOptionText}>{item}</Text>
+                </TouchableOpacity>
+              )}
+            />
+            <TouchableOpacity onPress={() => setShowCityModal(false)}>
+              <Text style={styles.modalClose}>Close</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      <Modal visible={showConditionModal} animationType="slide" transparent>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Select Medical Condition</Text>
+            <FlatList
+              data={conditionList}
+              keyExtractor={(item) => item}
+              renderItem={({ item }) => (
+                <TouchableOpacity
+                  style={styles.modalOption}
+                  onPress={() => {
+                    setMedicalCondition(item);
+                    setShowConditionModal(false);
+                  }}
+                >
+                  <Text style={styles.modalOptionText}>{item}</Text>
+                </TouchableOpacity>
+              )}
+            />
+            <TouchableOpacity onPress={() => setShowConditionModal(false)}>
+              <Text style={styles.modalClose}>Close</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -173,82 +334,108 @@ export default function DonateBloodScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    padding: 20,
-    backgroundColor: '#fff',
+    backgroundColor: '#FDECEC',
   },
-  heading: {
-    fontFamily: 'Poppins_700Bold',
+  scrollContent: {
+    flexGrow: 1,
+    justifyContent: 'center',
+    padding: 20,
+  },
+  card: {
+    backgroundColor: '#fff',
+    borderRadius: 15,
+    padding: 20,
+    shadowColor: '#000',
+    shadowOpacity: 0.1,
+    shadowOffset: { width: 0, height: 4 },
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  title: {
     fontSize: 24,
-    color: '#000',
+    fontFamily: 'Poppins_700Bold',
+    marginBottom: 20,
+    color: '#b71c1c',
     textAlign: 'center',
-    marginVertical: 20,
   },
   input: {
-    borderWidth: 1,
-    borderColor: '#ddd',
+    backgroundColor: '#F9F9F9',
     borderRadius: 10,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingHorizontal: 15,
+    paddingVertical: 14,
     marginBottom: 15,
+    fontSize: 15,
     fontFamily: 'Poppins_400Regular',
-    color: '#000',
+    color: '#333',
   },
-  inputText: {
+  dropdown: {
+    backgroundColor: '#F9F9F9',
+    borderRadius: 10,
+    paddingHorizontal: 15,
+    paddingVertical: 14,
+    marginBottom: 15,
+  },
+  dropdownText: {
     fontFamily: 'Poppins_400Regular',
-    color: '#555',
+    color: '#333',
+    fontSize: 15,
   },
-  placeholderText: {
-    position: 'absolute',
-    top: 12,
-    left: 16,
-    fontFamily: 'Poppins_400Regular',
-    color: '#555',
-    zIndex: 1,
-  },
-  picker: {
-    height: 50,
-    width: '100%',
-    color: '#000',
-    fontFamily: 'Poppins_400Regular',
-  },
-  pickerItem: {
-    fontFamily: 'Poppins_400Regular',
-    color: '#000',
-  },
-  buttonRow: {
+  switchRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
+    alignItems: 'center',
     marginBottom: 15,
   },
-  optionButton: {
-    flex: 1,
-    borderWidth: 1,
-    borderColor: '#D32F2F',
-    borderRadius: 10,
-    padding: 15,
-    marginHorizontal: 5,
-    alignItems: 'center',
-  },
-  activeOption: {
-    backgroundColor: '#D32F2F',
-  },
-  optionText: {
-    color: '#000',
+  switchLabel: {
     fontFamily: 'Poppins_400Regular',
+    fontSize: 15,
+    color: '#333',
   },
-  activeOptionText: {
-    color: '#fff',
-    fontFamily: 'Poppins_700Bold',
-  },
-  submitButton: {
-    backgroundColor: '#D32F2F',
-    padding: 16,
+  button: {
+    backgroundColor: '#b71c1c',
+    paddingVertical: 15,
     borderRadius: 10,
     alignItems: 'center',
+    marginTop: 10,
   },
-  submitButtonText: {
+  buttonText: {
     color: '#fff',
-    fontFamily: 'Poppins_700Bold',
+    fontFamily: 'Poppins_600SemiBold',
     fontSize: 16,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: '#00000099',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalContent: {
+    backgroundColor: '#fff',
+    width: '80%',
+    maxHeight: '70%',
+    borderRadius: 10,
+    padding: 20,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontFamily: 'Poppins_600SemiBold',
+    marginBottom: 10,
+    color: '#b71c1c',
+  },
+  modalOption: {
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#eee',
+  },
+  modalOptionText: {
+    fontSize: 16,
+    fontFamily: 'Poppins_400Regular',
+    color: '#333',
+  },
+  modalClose: {
+    marginTop: 10,
+    textAlign: 'center',
+    color: '#b71c1c',
+    fontFamily: 'Poppins_600SemiBold',
   },
 });

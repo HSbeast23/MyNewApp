@@ -9,7 +9,9 @@ import SplashScreen from '../screens/SplashScreen';
 import SignUpScreen from '../screens/SignUpScreen';
 import LoginScreen from '../screens/LoginScreen';
 
-// ✅ Use your DrawerNavigator instead of placing HomeScreen directly!
+// ✅ Your new Personal Data Form
+import PersonalDataForm from '../screens/PersonalDataForm';
+
 import DrawerNavigator from './DrawerNavigator';
 
 const Stack = createNativeStackNavigator();
@@ -26,7 +28,10 @@ export default function AppNavigator() {
         <Stack.Screen name="SignUp" component={SignUpScreen} />
         <Stack.Screen name="Login" component={LoginScreen} />
 
-        {/* ✅ This loads ALL your main screens INSIDE the drawer */}
+        {/* ✅ Add PersonalDataForm screen here */}
+        <Stack.Screen name="PersonalDataForm" component={PersonalDataForm} />
+
+        {/* ✅ Main app drawer */}
         <Stack.Screen name="MainDrawer" component={DrawerNavigator} />
       </Stack.Navigator>
     </NavigationContainer>

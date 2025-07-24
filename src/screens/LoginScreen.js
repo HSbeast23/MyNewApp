@@ -1,4 +1,4 @@
-// src/screens/LoginScreen.js
+// ✅ src/screens/LoginScreen.js
 
 import React, { useState } from 'react';
 import {
@@ -13,8 +13,11 @@ import {
   Platform,
 } from 'react-native';
 
-import { auth } from '../services/auth'; // ✅ Make sure the path matches your project structure
+// ✅ Use your own auth.js
+import { auth, db } from '../services/auth'; // matches your structure
+
 import { signInWithEmailAndPassword } from 'firebase/auth';
+import { getDoc, doc } from 'firebase/firestore';
 
 export default function LoginScreen({ navigation }) {
   const [email, setEmail] = useState('');
@@ -27,11 +30,25 @@ export default function LoginScreen({ navigation }) {
     }
 
     try {
-      await signInWithEmailAndPassword(auth, email, password);
-      console.log('Login successful!');
-      navigation.replace('MainDrawer'); // ✅ Replace with your actual Home screen name
+      // ✅ Sign in user
+      const userCredential = await signInWithEmailAndPassword(auth, email, password);
+      console.log('✅ Login successful!');
+
+      const uid = userCredential.user.uid;
+
+      // ✅ Check if personal data exists
+      const userDoc = await getDoc(doc(db, 'users', uid));
+
+      if (userDoc.exists()) {
+        console.log('✅ Personal data exists.');
+        navigation.replace('MainDrawer');
+      } else {
+        console.log('⚠️ No personal data found. Navigating to form.');
+        navigation.replace('PersonalDataForm');
+      }
+
     } catch (error) {
-      console.log(error);
+      console.log('❌ Login Error:', error);
       Alert.alert('Login Failed', error.message);
     }
   };

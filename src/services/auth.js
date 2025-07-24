@@ -1,16 +1,15 @@
-// ✅ Core Firebase imports
-import { initializeApp } from 'firebase/app';
+// src/services/auth.js
+
+import { initializeApp, getApps, getApp } from 'firebase/app';
 import {
   initializeAuth,
+  getAuth,
   getReactNativePersistence,
-  getAuth
 } from 'firebase/auth';
+import { getFirestore } from 'firebase/firestore';
 import { getAnalytics, isSupported } from 'firebase/analytics';
 
-// ✅ AsyncStorage for React Native auth persistence
 import AsyncStorage from '@react-native-async-storage/async-storage';
-
-// ✅ Google Sign-In for signOut helper
 import { GoogleSignin } from '@react-native-google-signin/google-signin';
 
 // ✅ Your Firebase config
@@ -21,36 +20,50 @@ const firebaseConfig = {
   storageBucket: "bloodlink-fb49b.appspot.com",
   messagingSenderId: "675390254350",
   appId: "1:675390254350:web:c9929da48f35986f81fb5f",
-  measurementId: "G-KDMJ42X11S"
+  measurementId: "G-KDMJ42X11S",
 };
 
-// ✅ Initialize Firebase app
-const app = initializeApp(firebaseConfig);
+// ✅ Safe App Initialization
+const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
 
-// ✅ Initialize Auth with persistence for React Native
-export const auth = initializeAuth(app, {
-  persistence: getReactNativePersistence(AsyncStorage)
-});
+// ✅ Safe Auth Initialization
+let auth;
+try {
+  auth = initializeAuth(app, {
+    persistence: getReactNativePersistence(AsyncStorage),
+  });
+} catch (error) {
+  if (error.code === 'auth/already-initialized') {
+    auth = getAuth(app);
+  } else {
+    console.error('❌ Auth init error:', error);
+    throw error;
+  }
+}
 
-// ✅ Fallback for web: uncomment if needed
-// export const auth = getAuth(app);
+// ✅ Firestore
+const db = getFirestore(app);
 
-// ✅ Initialize Analytics safely
+// ✅ Optional: Analytics
 isSupported().then((supported) => {
   if (supported) {
     getAnalytics(app);
+    console.log('✅ Analytics initialized.');
   } else {
-    console.log('Analytics not supported in this environment.');
+    console.log('⚠️ Analytics not supported.');
   }
 });
 
-// ✅ Sign-out helper: signs out from Firebase & Google
+// ✅ Google Sign-Out helper
 export const signOutUser = async () => {
   try {
-    await GoogleSignin.signOut(); // ✅ Sign out Google session
-    await auth.signOut();         // ✅ Sign out Firebase session
+    await GoogleSignin.signOut();
+    await auth.signOut();
     console.log('✅ User signed out from Google & Firebase.');
   } catch (error) {
     console.error('❌ Sign out error:', error);
   }
 };
+
+// ✅ Export both!
+export { auth, db };

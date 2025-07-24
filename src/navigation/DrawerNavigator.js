@@ -1,36 +1,25 @@
 import React from 'react';
-import {
-  View,
-  Text,
-  Image,
-  StyleSheet
-} from 'react-native';
+import { View, Text, Image, StyleSheet, Alert } from 'react-native';
 import {
   createDrawerNavigator,
   DrawerContentScrollView,
-  DrawerItem
+  DrawerItem,
 } from '@react-navigation/drawer';
-
 import { Ionicons, MaterialIcons, Feather, FontAwesome5 } from '@expo/vector-icons';
+import { useNavigation } from '@react-navigation/native';
 
 // ✅ Screens
 import HomeScreen from '../screens/HomeScreen';
 import DonateBloodScreen from '../screens/DonateBloodScreen';
 import RequestBloodScreen from '../screens/RequestBloodScreen';
-import FounderScreen from '../screens/FounderScreen';
-import AdvisorScreen from '../screens/AdvisorScreen';
-import BloodLinkNearScreen from '../screens/BloodLinkNearScreen'; // ✅ updated name
 import MyProfileScreen from '../screens/MyProfileScreen';
-import ReferFriendScreen from '../screens/ReferFriendScreen';
 import DonateHistoryScreen from '../screens/DonateHistoryScreen';
-import HospitalServicesScreen from '../screens/HospitalServicesScreen';
-import BloodBankServiceScreen from '../screens/BloodBankServiceScreen';
-import LanguagesScreen from '../screens/LanguagesScreen';
 import AboutUsScreen from '../screens/AboutUsScreen';
 import PrivacyPolicyScreen from '../screens/PrivacyPolicyScreen';
 import RateUsScreen from '../screens/RateUsScreen';
 import NotificationsScreen from '../screens/NotificationsScreen';
-import LogoutScreen from '../screens/LogoutScreen';
+
+import { signOutUser } from '../services/auth';
 
 const Drawer = createDrawerNavigator();
 
@@ -56,28 +45,32 @@ export default function DrawerNavigator() {
       <Drawer.Screen name="Home" component={HomeScreen} />
       <Drawer.Screen name="DonateBlood" component={DonateBloodScreen} />
       <Drawer.Screen name="RequestBlood" component={RequestBloodScreen} />
-      <Drawer.Screen name="Founder" component={FounderScreen} />
-      <Drawer.Screen name="Advisor" component={AdvisorScreen} />
-      <Drawer.Screen name="BloodLink Near" component={BloodLinkNearScreen} /> 
       <Drawer.Screen name="My Profile" component={MyProfileScreen} />
-      <Drawer.Screen name="Refer Friend" component={ReferFriendScreen} />
       <Drawer.Screen name="Donate History" component={DonateHistoryScreen} />
-      <Drawer.Screen name="Hospital Services" component={HospitalServicesScreen} />
-      <Drawer.Screen name="Blood Bank Service" component={BloodBankServiceScreen} />
-      <Drawer.Screen name="Languages" component={LanguagesScreen} />
       <Drawer.Screen name="About Us" component={AboutUsScreen} />
       <Drawer.Screen name="Privacy Policy" component={PrivacyPolicyScreen} />
       <Drawer.Screen name="Rate Us" component={RateUsScreen} />
       <Drawer.Screen name="Notifications" component={NotificationsScreen} />
-      <Drawer.Screen name="Logout" component={LogoutScreen} />
     </Drawer.Navigator>
   );
 }
 
 function CustomDrawerContent(props) {
+  const navigation = useNavigation();
+
+  const handleLogout = async () => {
+    try {
+      await signOutUser();
+      Alert.alert('Logged out', 'You have been logged out.');
+      navigation.replace('Login');
+    } catch (error) {
+      console.error('Logout Error:', error);
+      Alert.alert('Error', 'Something went wrong while logging out.');
+    }
+  };
+
   return (
     <View style={{ flex: 1, backgroundColor: '#b71c1c' }}>
-      {/* HEADER */}
       <View style={styles.header}>
         <View style={styles.logoContainer}>
           <Image
@@ -89,28 +82,34 @@ function CustomDrawerContent(props) {
         <Text style={styles.subtitle}>Noble to save life</Text>
       </View>
 
-      {/* EVERYTHING SCROLLABLE */}
       <DrawerContentScrollView
         {...props}
         contentContainerStyle={{ flexGrow: 1, paddingTop: 0 }}
       >
         <View style={{ flex: 1 }}>
-          {props.state.routeNames.map((name, index) => (
-            <DrawerItem
-              key={index}
-              label={getLabel(name)}
-              icon={({ color, size }) => getIcon(name, color, size)}
-              labelStyle={{ color: '#fff' }}
-              onPress={() => props.navigation.navigate(name)}
-            />
-          ))}
+          {props.state.routeNames
+            .filter(name => name !== 'Logout')
+            .map((name, index) => (
+              <DrawerItem
+                key={index}
+                label={getLabel(name)}
+                icon={({ color, size }) => getIcon(name, color, size)}
+                labelStyle={{ color: '#fff' }}
+                onPress={() => props.navigation.navigate(name)}
+              />
+            ))}
+          <DrawerItem
+            label="Logout"
+            icon={({ color, size }) => getIcon('Logout', color, size)}
+            labelStyle={{ color: '#fff' }}
+            onPress={handleLogout}
+          />
         </View>
       </DrawerContentScrollView>
     </View>
   );
 }
 
-// ✅ Label names (only adjust for special cases)
 function getLabel(name) {
   switch (name) {
     case 'DonateBlood': return 'Donate Blood';
@@ -119,21 +118,13 @@ function getLabel(name) {
   }
 }
 
-// ✅ Icons
 function getIcon(name, color, size) {
   switch (name) {
     case 'Home': return <Ionicons name="home-outline" size={size} color={color} />;
     case 'DonateBlood': return <FontAwesome5 name="hand-holding-heart" size={size} color={color} />;
     case 'RequestBlood': return <Ionicons name="water-outline" size={size} color={color} />;
-    case 'Founder': return <FontAwesome5 name="user-tie" size={size} color={color} />;
-    case 'Advisor': return <Ionicons name="people-outline" size={size} color={color} />;
-    case 'BloodLink Near': return <Ionicons name="location-outline" size={size} color={color} />; // ✅ updated case
     case 'My Profile': return <Ionicons name="person-circle-outline" size={size} color={color} />;
-    case 'Refer Friend': return <Ionicons name="person-add-outline" size={size} color={color} />;
     case 'Donate History': return <Ionicons name="time-outline" size={size} color={color} />;
-    case 'Hospital Services': return <MaterialIcons name="local-hospital" size={size} color={color} />;
-    case 'Blood Bank Service': return <Ionicons name="water-outline" size={size} color={color} />;
-    case 'Languages': return <Ionicons name="language-outline" size={size} color={color} />;
     case 'About Us': return <Ionicons name="information-circle-outline" size={size} color={color} />;
     case 'Privacy Policy': return <Ionicons name="shield-checkmark-outline" size={size} color={color} />;
     case 'Rate Us': return <Ionicons name="star-outline" size={size} color={color} />;
