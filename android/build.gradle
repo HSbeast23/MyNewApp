@@ -23,7 +23,7 @@ buildscript {
 // ✅ ✅ ✅ Add this block for Google Play Services Auth version (for Firebase Auth + Google Sign-In)
 ext {
   buildToolsVersion = "33.0.0" // or your build tools version
-  minSdkVersion = 21
+  minSdkVersion = 24
   compileSdkVersion = 34
   targetSdkVersion = 34
 
