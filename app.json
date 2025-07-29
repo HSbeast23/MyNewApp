@@ -17,7 +17,7 @@
     },
     "android": {
       "package": "com.haarhish.BloodLink",
-      "googleServicesFile": "./google-services.json",
+      "googleServicesFile": "./android/app/google-services.json",
       "adaptiveIcon": {
         "foregroundImage": "./assets/icon.png",
         "backgroundColor": "#ffffff"
@@ -51,4 +51,3 @@
     "owner": "haarhish"
   }
 }
-
