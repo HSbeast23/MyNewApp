@@ -1,4 +1,4 @@
-package com.haarhish.MyNewApp
+package com.haarhish.BloodLink
 
 import android.os.Build
 import android.os.Bundle
