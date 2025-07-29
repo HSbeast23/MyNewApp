@@ -17,12 +17,12 @@
     },
     "android": {
       "package": "com.haarhish.BloodLink",
-      "googleServicesFile": "./android/app/google-services.json",
+      "googleServicesFile": "./google-services.json",
       "adaptiveIcon": {
         "foregroundImage": "./assets/icon.png",
         "backgroundColor": "#ffffff"
       },
-      "permissions": []
+      "permissions": ["NOTIFICATIONS"]
     },
     "web": {
       "favicon": "./assets/favicon.png"
@@ -39,7 +39,8 @@
         }
       ],
       "expo-font",
-      "expo-web-browser"
+      "expo-web-browser",
+      "expo-notifications"
     ],
     "assetBundlePatterns": ["**/*"],
     "extra": {
@@ -50,3 +51,4 @@
     "owner": "haarhish"
   }
 }
+
