@@ -5,36 +5,26 @@ buildscript {
     google()
     mavenCentral()
   }
+
   dependencies {
-    // ✅ Android Gradle Plugin — must have
-    classpath('com.android.tools.build:gradle:8.0.2') // Or your version
-
-    // ✅ React Native plugin — must have
+    classpath('com.android.tools.build:gradle:8.4.0') // ✅ Safe AGP version
     classpath('com.facebook.react:react-native-gradle-plugin')
-
-    // ✅ Kotlin plugin — needed for some packages
-    classpath('org.jetbrains.kotlin:kotlin-gradle-plugin')
-
-    // ✅ ✅ ✅ Required for Firebase & google-services.json
-    classpath('com.google.gms:google-services:4.3.15')
+    classpath("org.jetbrains.kotlin:kotlin-gradle-plugin:1.8.22") // ✅ Hardcoded Kotlin version
+    classpath('com.google.gms:google-services:4.3.15') // ✅ Firebase services
   }
 }
 
-// ✅ ✅ ✅ Add this block for Google Play Services Auth version (for Firebase Auth + Google Sign-In)
 ext {
-  buildToolsVersion = "33.0.0" // or your build tools version
+  buildToolsVersion = "34.0.0"
   minSdkVersion = 24
   compileSdkVersion = 34
   targetSdkVersion = 34
 
-  // You can adjust supportLibVersion if needed
   supportLibVersion = "28.0.0"
-
-  // ✅ Pin Google Play Services Auth version
   googlePlayServicesAuthVersion = "19.2.0"
 }
 
-// ✅ Resolve react-native Android directory for autolinking
+// ✅ React Native path resolution
 def reactNativeAndroidDir = new File(
   providers.exec {
     workingDir(rootDir)
@@ -45,19 +35,22 @@ def reactNativeAndroidDir = new File(
 
 allprojects {
   repositories {
-    maven {
-      // All of React Native (JS, Obj-C sources, Android binaries) is installed from npm
-      url(reactNativeAndroidDir)
-    }
-
+    maven { url(reactNativeAndroidDir) }
     google()
     mavenCentral()
     maven { url 'https://www.jitpack.io' }
   }
 }
 
-// ✅ Expo root plugin — needed for managed/bare workflow with EAS
+// ✅ Required plugins for Expo & React Native
 apply plugin: "expo-root-project"
-
-// ✅ React Native root plugin — must have
 apply plugin: "com.facebook.react.rootproject"
+
+// ✅ Kotlin JVM compatibility fix
+allprojects {
+  tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile).configureEach {
+    kotlinOptions {
+      jvmTarget = "17"
+    }
+  }
+}

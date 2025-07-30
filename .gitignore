@@ -3,11 +3,12 @@ node_modules/
 
 # ✅ Expo local folders
 .expo/
+.expo-shared/
 dist/
 web-build/
 expo-env.d.ts
 
-# ✅ Native build output folders (OK to ignore, keep source files)
+# ✅ Native build output folders (safe to ignore)
 android/.gradle/
 android/app/build/
 android/build/
@@ -24,8 +25,9 @@ metro-health-check*
 npm-debug.*
 yarn-debug.*
 yarn-error.*
+pnpm-debug.*
 
-# ✅ Certificates & keys
+# ✅ Certificates & keys (never push these!)
 *.jks
 *.keystore
 *.p8
@@ -34,12 +36,24 @@ yarn-error.*
 *.mobileprovision
 *.pem
 
-# ✅ Environment files
+# ✅ Environment files (API keys, secrets, etc.)
 .env
 .env.*
 .env*.local
+firebase-service-account.json
 
-# ✅ Misc
-*.orig.*
+# ✅ macOS & Windows junk files
 .DS_Store
+Thumbs.db
+
+# ✅ Git merge conflict files
+*.orig.*
+
+# ✅ TypeScript
 *.tsbuildinfo
+
+# ✅ VSCode settings (optional but useful to ignore)
+.vscode/
+
+# ✅ Android local config
+android/local.properties

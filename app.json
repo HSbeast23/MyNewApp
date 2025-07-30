@@ -35,6 +35,7 @@
             "compileSdkVersion": 34,
             "targetSdkVersion": 34,
             "minSdkVersion": 24
+            
           }
         }
       ],

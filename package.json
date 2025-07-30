@@ -24,7 +24,7 @@
     "@react-native-firebase/auth": "^22.4.0",
     "@react-native-firebase/firestore": "^22.4.0",
     "@react-native-google-signin/google-signin": "^15.0.0",
-    "@react-native-picker/picker": "2.11.1",
+    "@react-native-picker/picker": "^2.4.8",
     "@react-navigation/bottom-tabs": "^7.4.2",
     "@react-navigation/drawer": "^7.5.2",
     "@react-navigation/native": "^7.1.14",
@@ -39,6 +39,7 @@
     "expo-location": "~18.1.6",
     "expo-modules-autolinking": "~2.1.0",
     "expo-notifications": "~0.31.4",
+    "expo-splash-screen": "~0.20.5",
     "expo-status-bar": "~2.2.3",
     "expo-web-browser": "~14.2.0",
     "firebase": "^11.10.0",
@@ -56,8 +57,7 @@
     "react-native-screens": "~4.11.1",
     "react-native-swiper": "^1.6.0",
     "react-native-toast-message": "^2.3.3",
-    "react-native-vector-icons": "^10.2.0",
-    "expo-splash-screen": "~0.20.5"
+    "react-native-vector-icons": "^10.2.0"
   },
   "devDependencies": {
     "@babel/core": "^7.20.0"
