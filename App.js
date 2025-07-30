@@ -41,11 +41,13 @@ export default function App() {
   const responseListener = useRef();
 
   useEffect(() => {
-    // ✅ Google Sign-In
-    GoogleSignin.configure({
-      webClientId: '28623926287-ia50k6mpp036r640l2v820bneju10bih.apps.googleusercontent.com',
-      offlineAccess: true,
-    });
+  // ✅ Google Sign-In
+  GoogleSignin.configure({
+  webClientId: '675390254350-damalk9bl472c3qr3pan12krc2gano7u.apps.googleusercontent.com', // ✅ Web OAuth Client ID (client_type: 3)
+  offlineAccess: true,
+});
+
+
 
     // ✅ Push Notification Registration
     registerForPushNotificationsAsync();

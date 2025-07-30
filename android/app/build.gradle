@@ -1,6 +1,8 @@
-apply plugin: "com.android.application"
-apply plugin: "org.jetbrains.kotlin.android"
-apply plugin: "com.facebook.react"
+apply plugin: 'com.android.application'
+apply plugin: 'com.facebook.react'
+apply plugin: 'org.jetbrains.kotlin.android'
+
+// ✅ Google Services plugin should only be here once (at the bottom)
 
 def projectRoot = rootDir.getAbsoluteFile().getParentFile().getAbsolutePath()
 
@@ -16,17 +18,14 @@ react {
     autolinkLibrariesWithApp()
 }
 
-def enableProguardInReleaseBuilds = (findProperty('android.enableProguardInReleaseBuilds') ?: false).toBoolean()
-def jscFlavor = 'io.github.react-native-community:jsc-android:2026004.+'
-
 android {
-    namespace "com.haarhish.MyNewApp"              // Updated to match Firebase and google-services.json
-    ndkVersion rootProject.ext.ndkVersion
+    namespace "com.haarhish.MyNewApp"
     compileSdk rootProject.ext.compileSdkVersion
     buildToolsVersion rootProject.ext.buildToolsVersion
+    ndkVersion rootProject.ext.ndkVersion
 
     defaultConfig {
-        applicationId "com.haarhish.MyNewApp"      // Updated to match Firebase and google-services.json
+        applicationId "com.haarhish.MyNewApp"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode 1
@@ -48,10 +47,9 @@ android {
         }
         release {
             signingConfig signingConfigs.debug
-            shrinkResources (findProperty('android.enableShrinkResourcesInReleaseBuilds')?.toBoolean() ?: false)
-            minifyEnabled enableProguardInReleaseBuilds
+            minifyEnabled false
+            shrinkResources false
             proguardFiles getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro"
-            crunchPngs (findProperty('android.enablePngCrunchInReleaseBuilds')?.toBoolean() ?: true)
         }
     }
 
@@ -61,12 +59,17 @@ android {
         }
     }
 
-    androidResources {
-        ignoreAssetsPattern '!.svn:!.git:!.ds_store:!*.scc:!CVS:!thumbs.db:!picasa.ini:!*~'
-    }
-
     kotlinOptions {
         jvmTarget = "17"
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+
+    androidResources {
+        ignoreAssetsPattern '!.svn:!.git:!.ds_store:!*.scc:!CVS:!thumbs.db:!picasa.ini:!*~'
     }
 }
 
@@ -84,13 +87,11 @@ android {
 dependencies {
     implementation("com.facebook.react:react-android")
 
-    // Google Sign-In dependency
+    // ✅ Google Sign-In dependency
     implementation 'com.google.android.gms:play-services-auth:20.7.0'
 
-    // Firebase BOM to manage Firebase versions
+    // ✅ Firebase BOM
     implementation platform('com.google.firebase:firebase-bom:32.2.3')
-
-    // Firebase Authentication
     implementation 'com.google.firebase:firebase-auth'
 
     def frescoVersion = "2.6.0"
@@ -111,9 +112,11 @@ dependencies {
     if (hermesEnabled.toBoolean()) {
         implementation("com.facebook.react:hermes-android")
     } else {
-        implementation jscFlavor
+        implementation 'io.github.react-native-community:jsc-android:2026004.+'
     }
-}
 
-// Apply the Google Services plugin at the end
+    implementation 'androidx.appcompat:appcompat:1.6.1'
+    implementation 'androidx.annotation:annotation:1.6.0'
+}
 apply plugin: 'com.google.gms.google-services'
+
