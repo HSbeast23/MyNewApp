@@ -1,21 +1,17 @@
-// ✅ src/screens/BloodRequestForm.js
+// ✅ src/screens/RequestBloodScreen.js
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
-  View,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  StyleSheet,
-  Alert,
-  ScrollView,
-  Modal,
-  FlatList,
+  View, Text, TextInput, TouchableOpacity, StyleSheet,
+  Alert, ScrollView, Modal, FlatList
 } from 'react-native';
-
+import * as Notifications from 'expo-notifications';
+import * as Device from 'expo-device';
 import { auth, db } from '../services/auth';
-import { addDoc, collection } from 'firebase/firestore';
-import { serverTimestamp } from 'firebase/firestore';
+import {
+  addDoc, collection, serverTimestamp, getDocs, query, where
+} from 'firebase/firestore';
+
 export default function BloodRequestForm({ navigation }) {
   const [name, setName] = useState('');
   const [city, setCity] = useState('');
@@ -26,6 +22,7 @@ export default function BloodRequestForm({ navigation }) {
   const [purpose, setPurpose] = useState('');
   const [conditions, setConditions] = useState([]);
   const [requiredDateTime, setRequiredDateTime] = useState('');
+  const [expoPushToken, setExpoPushToken] = useState('');
 
   const [showBloodModal, setShowBloodModal] = useState(false);
   const [showCityModal, setShowCityModal] = useState(false);
@@ -34,32 +31,51 @@ export default function BloodRequestForm({ navigation }) {
   const [showConditionModal, setShowConditionModal] = useState(false);
 
   const bloodGroups = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'];
-
- const genders = ['Male', 'Female'];
- 
-
+  const genders = ['Male', 'Female'];
   const cities = [
-  'Ariyalur','Chengalpattu','Chennai','Coimbatore','Cuddalore','Dharmapuri',
-  'Dindigul','Erode','Kallakurichi','Kancheepuram','Karur','Krishnagiri',
-  'Mayiladuthurai','Nagapattinam','Namakkal','Nilgiris','Perambalur',
-  'Pudukottai','Ramanathapuram','Ranipet','Salem','Sivaganga','Tenkasi',
-  'Thanjavur','Theni','Thoothukudi','Tiruchirappalli','Tirunelveli',
-  'Tirupathur','Tiruppur','Tiruvallur','Tiruvannamalai','Tiruvarur',
-  'Vellore','Viluppuram','Virudhunagar'
-];
-const purposes = [
-  'Accident / Emergency','Surgery (heart/kidney/brain)',
-  'Organ Transplant','Pregnancy / Delivery','Cancer Treatment',
-  'Anemia / Thalassemia / Sickle Cell','Dialysis / Renal Failure',
-  'Dengue / Malaria / Viral Fever','COVID‑19 Complications',
-  'Blood Disorders','Post‑operative Care','Other'
-];
-const medicalConditions = [
-  'Diabetes','Hypertension','Cardiac Issues','Liver Disease',
-  'Kidney Disease','HIV','Hepatitis B or C','Cancer',
-  'None of the Above'
-];
+    'Ariyalur','Chengalpattu','Chennai','Coimbatore','Cuddalore','Dharmapuri',
+    'Dindigul','Erode','Kallakurichi','Kancheepuram','Karur','Krishnagiri',
+    'Mayiladuthurai','Nagapattinam','Namakkal','Nilgiris','Perambalur',
+    'Pudukottai','Ramanathapuram','Ranipet','Salem','Sivaganga','Tenkasi',
+    'Thanjavur','Theni','Thoothukudi','Tiruchirappalli','Tirunelveli',
+    'Tirupathur','Tiruppur','Tiruvallur','Tiruvannamalai','Tiruvarur',
+    'Vellore','Viluppuram','Virudhunagar'
+  ];
+  const purposes = [
+    'Accident / Emergency','Surgery (heart/kidney/brain)',
+    'Organ Transplant','Pregnancy / Delivery','Cancer Treatment',
+    'Anemia / Thalassemia / Sickle Cell','Dialysis / Renal Failure',
+    'Dengue / Malaria / Viral Fever','COVID‑19 Complications',
+    'Blood Disorders','Post‑operative Care','Other'
+  ];
+  const medicalConditions = [
+    'Diabetes','Hypertension','Cardiac Issues','Liver Disease',
+    'Kidney Disease','HIV','Hepatitis B or C','Cancer',
+    'None of the Above'
+  ];
 
+  useEffect(() => {
+    registerForPushNotificationsAsync().then(token => setExpoPushToken(token));
+  }, []);
+
+  const registerForPushNotificationsAsync = async () => {
+    if (Device.isDevice) {
+      const { status: existingStatus } = await Notifications.getPermissionsAsync();
+      let finalStatus = existingStatus;
+      if (existingStatus !== 'granted') {
+        const { status } = await Notifications.requestPermissionsAsync();
+        finalStatus = status;
+      }
+      if (finalStatus !== 'granted') {
+        Alert.alert('Failed to get push token for push notification!');
+        return;
+      }
+      const token = (await Notifications.getExpoPushTokenAsync()).data;
+      return token;
+    } else {
+      Alert.alert('Must use physical device for Push Notifications');
+    }
+  };
 
   const validatePhone = (number) => /^[6-9]\d{9}$/.test(number);
 
@@ -71,12 +87,35 @@ const medicalConditions = [
     }
   };
 
+  const sendPushNotification = async (expoPushToken, title, message) => {
+    const payload = {
+      to: expoPushToken,
+      sound: 'default',
+      title,
+      body: message,
+      data: { screen: 'Notification' },
+    };
+
+    try {
+      await fetch('https://exp.host/--/api/v2/push/send', {
+        method: 'POST',
+        headers: {
+          Accept: 'application/json',
+          'Accept-Encoding': 'gzip, deflate',
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payload),
+      });
+    } catch (err) {
+      console.error('Push notification error:', err);
+    }
+  };
+
   const handleSubmit = async () => {
     if (!name || !city || !contactNumber || !bloodGroup || !gender || !bloodUnits || !purpose || !requiredDateTime) {
       Alert.alert('Error', 'Please fill in all fields.');
       return;
     }
-
     if (!validatePhone(contactNumber)) {
       Alert.alert('Invalid Phone', 'Please enter a valid Indian mobile number.');
       return;
@@ -91,19 +130,36 @@ const medicalConditions = [
 
       await addDoc(collection(db, 'Bloodreceiver'), {
         name,
-  city,
-  gender,
-  mobile:contactNumber,
-  bloodGroup,
-  bloodUnits,
-  purpose,
-  conditions,
-  requiredDateTime,
-  createdAt: serverTimestamp(),
-  status: "pending", // required for matching logic
-  uid: auth.currentUser.uid
-      
-        
+        city,
+        gender,
+        mobile: contactNumber,
+        bloodGroup,
+        bloodUnits,
+        purpose,
+        conditions,
+        requiredDateTime,
+        createdAt: serverTimestamp(),
+        status: 'pending',
+        uid,
+        pushToken: expoPushToken || null
+      });
+
+      // 🔔 Notify matched donors
+      const donorSnap = await getDocs(
+        query(
+          collection(db, 'BloodDonors'),
+          where('bloodGroup', '==', bloodGroup),
+          where('city', '==', city)
+        )
+      );
+
+      donorSnap.forEach(async (docSnap) => {
+        const donor = docSnap.data();
+        const donorToken = donor?.pushToken;
+        if (donorToken) {
+          const msg = `${name} needs ${bloodUnits} unit(s) of ${bloodGroup} blood in ${city}`;
+          await sendPushNotification(donorToken, '🩸 New Blood Request', msg);
+        }
       });
 
       Alert.alert('Success', 'Your blood request has been submitted!');
@@ -151,18 +207,10 @@ const medicalConditions = [
               {[1, 2, 3, 4, 5].map((unit) => (
                 <TouchableOpacity
                   key={unit}
-                  style={[
-                    styles.bullet,
-                    bloodUnits == unit.toString() && styles.selectedBullet,
-                  ]}
+                  style={[styles.bullet, bloodUnits == unit.toString() && styles.selectedBullet]}
                   onPress={() => setBloodUnits(unit.toString())}
                 >
-                  <Text
-                    style={[
-                      styles.bulletText,
-                      bloodUnits == unit.toString() && styles.selectedBulletText,
-                    ]}
-                  >
+                  <Text style={[styles.bulletText, bloodUnits == unit.toString() && styles.selectedBulletText]}>
                     {unit}
                   </Text>
                 </TouchableOpacity>
@@ -291,10 +339,6 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
     borderRadius: 15,
     padding: 20,
-    shadowColor: '#000',
-    shadowOpacity: 0.1,
-    shadowOffset: { width: 0, height: 4 },
-    shadowRadius: 8,
     elevation: 4,
   },
   title: {
@@ -373,9 +417,7 @@ const styles = StyleSheet.create({
     color: '#b71c1c',
     fontFamily: 'Poppins_600SemiBold',
   },
-  bulletContainer: {
-    marginBottom: 15,
-  },
+  bulletContainer: { marginBottom: 15 },
   bulletRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',

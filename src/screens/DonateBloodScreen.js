@@ -1,6 +1,6 @@
-// ✅ src/screens/DonateBloodForm.js
+// ✅ src/screens/DonateBloodScreen.js
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react'; // ✅ updated for useEffect
 import {
   View,
   Text,
@@ -18,6 +18,9 @@ import { auth, db } from '../services/auth';
 import { addDoc, collection } from 'firebase/firestore';
 import { serverTimestamp } from 'firebase/firestore';
 
+// ✅ Expo push notification imports
+import * as Notifications from 'expo-notifications';
+import * as Device from 'expo-device';
 
 export default function DonateBloodForm({ navigation }) {
   const [name, setName] = useState('');
@@ -34,6 +37,34 @@ export default function DonateBloodForm({ navigation }) {
   const [showGenderModal, setShowGenderModal] = useState(false);
   const [showCityModal, setShowCityModal] = useState(false);
   const [showConditionModal, setShowConditionModal] = useState(false);
+
+  const [expoPushToken, setExpoPushToken] = useState(''); // ✅ token state
+
+  useEffect(() => {
+    registerForPushNotificationsAsync().then(token => {
+      if (token) setExpoPushToken(token);
+    });
+  }, []);
+
+  const registerForPushNotificationsAsync = async () => {
+    if (Device.isDevice) {
+      const { status: existingStatus } = await Notifications.getPermissionsAsync();
+      let finalStatus = existingStatus;
+      if (existingStatus !== 'granted') {
+        const { status } = await Notifications.requestPermissionsAsync();
+        finalStatus = status;
+      }
+      if (finalStatus !== 'granted') {
+        Alert.alert('Permission denied', 'Push notifications permission not granted');
+        return null;
+      }
+      const tokenData = await Notifications.getExpoPushTokenAsync();
+      return tokenData.data;
+    } else {
+      Alert.alert('Must use physical device');
+      return null;
+    }
+  };
 
   const bloodGroups = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'];
   const genders = ['Male', 'Female'];
@@ -108,6 +139,7 @@ export default function DonateBloodForm({ navigation }) {
         medicalCondition,
         createdAt: serverTimestamp(),
         userId: uid,
+        expoPushToken, // ✅ store push token
       });
 
       Alert.alert('Success', 'Your blood donation offer has been submitted!');
@@ -123,12 +155,12 @@ export default function DonateBloodForm({ navigation }) {
       setIsElderlyExperienced(false);
 
       navigation.navigate('Home');
-
     } catch (error) {
       console.error('Error submitting donation:', error);
       Alert.alert('Error', 'Failed to submit donation.');
     }
   };
+
 
   return (
     <View style={styles.container}>
@@ -439,3 +471,7 @@ const styles = StyleSheet.create({
     fontFamily: 'Poppins_600SemiBold',
   },
 });
+
+
+
+

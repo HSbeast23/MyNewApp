@@ -1,4 +1,3 @@
-// [UNCHANGED HEADERS]
 import React, { useEffect, useState } from 'react';
 import {
   View, Text, ScrollView, StyleSheet, ActivityIndicator,
@@ -8,6 +7,7 @@ import {
   collection, getDocs, query, where,
   updateDoc, doc, arrayUnion
 } from 'firebase/firestore';
+import * as Notifications from 'expo-notifications';
 import { auth, db } from '../services/auth';
 import { useFocusEffect } from '@react-navigation/native';
 
@@ -38,7 +38,6 @@ const NotificationScreen = () => {
         query(collection(db, 'Bloodreceiver'), where('uid', '==', user.uid))
       );
 
-      // Donor side logic
       if (!donorSnap.empty) {
         const donorData = donorSnap.docs[0].data();
         const { bloodGroup, city } = donorData;
@@ -68,14 +67,12 @@ const NotificationScreen = () => {
         setDonorMatches(matches);
       }
 
-      // Receiver side logic
       if (!receiverSnap.empty) {
         const requests = [];
 
         for (const docSnap of receiverSnap.docs) {
           const item = docSnap.data();
           const updatedResponses = [];
-
           let needUpdate = false;
 
           if (Array.isArray(item.responses)) {
@@ -107,7 +104,33 @@ const NotificationScreen = () => {
     }
   };
 
-  // ... your code remains unchanged from here on (rendering logic, styles, etc.)
+  // ✅ Updated push notification sender using fetch()
+  const sendPushNotification = async (expoPushToken, title, message) => {
+    const notificationPayload = {
+      to: expoPushToken,
+      sound: 'default',
+      title,
+      body: message,
+      data: { screen: 'Notification' },
+    };
+
+    try {
+      const response = await fetch('https://exp.host/--/api/v2/push/send', {
+        method: 'POST',
+        headers: {
+          Accept: 'application/json',
+          'Accept-Encoding': 'gzip, deflate',
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(notificationPayload),
+      });
+
+      const data = await response.json();
+      console.log('✅ Notification sent:', data);
+    } catch (error) {
+      console.error('❌ Notification error:', error);
+    }
+  };
 
   const handleResponse = async (receiverDocId, status) => {
     try {
@@ -119,6 +142,13 @@ const NotificationScreen = () => {
       const donor = donorSnap.docs[0]?.data();
 
       const receiverDocRef = doc(db, 'Bloodreceiver', receiverDocId);
+      const receiverDocSnap = await getDocs(
+        query(collection(db, 'Bloodreceiver'), where('__name__', '==', receiverDocId))
+      );
+
+      const receiverData = receiverDocSnap.docs[0]?.data();
+      const receiverPushToken = receiverData?.pushToken;
+
       await updateDoc(receiverDocRef, {
         responses: arrayUnion({
           donorUid: currentUser.uid,
@@ -127,11 +157,18 @@ const NotificationScreen = () => {
           status,
           respondedAt: new Date(),
           seenByReceiver: false
-        })
+        }),
+        status,
+        respondedBy: donor?.name || 'Donor'
       });
 
+      if (receiverPushToken) {
+        const msg = `Your blood request was ${status} by ${donor?.name}`;
+        await sendPushNotification(receiverPushToken, 'Blood Request Update', msg);
+      }
+
       Alert.alert('Success', `You have ${status} the request.`);
-      fetchNotifications(); // refresh after response
+      fetchNotifications();
     } catch (err) {
       console.error('Error sending response:', err);
       Alert.alert('Error', 'Failed to send response');
@@ -322,4 +359,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default NotificationScreen
+export default NotificationScreen;

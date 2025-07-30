@@ -1,56 +1,51 @@
-// Top-level build file where you can add configuration options common to all sub-projects/modules.
+apply plugin: 'com.android.application'
+apply plugin: 'com.google.gms.google-services'  // Firebase Google Services plugin
+apply plugin: 'com.facebook.react'               // React Native plugin
 
-buildscript {
-  repositories {
-    google()
-    mavenCentral()
-  }
+android {
+    compileSdkVersion rootProject.compileSdkVersion
 
-  dependencies {
-    classpath('com.android.tools.build:gradle:8.4.0') // ✅ Android Gradle Plugin
-    classpath('com.facebook.react:react-native-gradle-plugin')
-    classpath("org.jetbrains.kotlin:kotlin-gradle-plugin:1.8.22") // ✅ Kotlin
-    classpath('com.google.gms:google-services:4.3.15') // ✅ Firebase
-  }
-}
-
-ext {
-  buildToolsVersion = "34.0.0"
-  minSdkVersion = 24
-  compileSdkVersion = 34
-  targetSdkVersion = 34
-
-  supportLibVersion = "28.0.0"
-  googlePlayServicesAuthVersion = "19.2.0"
-}
-
-// ✅ React Native path resolution (clean and stable)
-def reactNativeAndroidDir = new File(
-  providers.exec {
-    workingDir(rootDir)
-    commandLine("node", "--print", "require.resolve('react-native/package.json')")
-  }.standardOutput.asText.get().trim(),
-  "../android"
-)
-
-allprojects {
-  repositories {
-    maven { url(reactNativeAndroidDir) }
-    google()
-    mavenCentral()
-    maven { url 'https://www.jitpack.io' }
-  }
-}
-
-// ✅ Required plugins
-apply plugin: "expo-root-project"
-apply plugin: "com.facebook.react.rootproject"
-
-// ✅ Kotlin JVM compatibility fix
-allprojects {
-  tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile).configureEach {
-    kotlinOptions {
-      jvmTarget = "17"
+    defaultConfig {
+        applicationId "com.haarhish.MyNewApp"    // Your exact package name here
+        minSdkVersion rootProject.minSdkVersion
+        targetSdkVersion rootProject.targetSdkVersion
+        versionCode 1
+        versionName "1.0"
     }
-  }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+        }
+    }
+
+    // Optional: Java/Kotlin compatibility
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+    kotlinOptions {
+        jvmTarget = "17"
+    }
 }
+
+dependencies {
+    implementation 'com.facebook.react:react-native:+'
+
+    // Firebase BoM (Bill of Materials) to manage versions
+    implementation platform('com.google.firebase:firebase-bom:32.2.3')
+
+    // Firebase Authentication
+    implementation 'com.google.firebase:firebase-auth'
+
+    // Google Sign-In dependency
+    implementation 'com.google.android.gms:play-services-auth:20.7.0'
+
+    // Other dependencies you might need
+    implementation 'androidx.appcompat:appcompat:1.6.1'
+    implementation 'androidx.annotation:annotation:1.6.0'
+}
+
+// Ensure this is at the bottom to apply the Google Services plugin
+apply plugin: 'com.google.gms.google-services'

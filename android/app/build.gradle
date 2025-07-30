@@ -20,13 +20,13 @@ def enableProguardInReleaseBuilds = (findProperty('android.enableProguardInRelea
 def jscFlavor = 'io.github.react-native-community:jsc-android:2026004.+'
 
 android {
-    namespace "com.haarhish.BloodLink"              // ✅ make sure this matches all Kotlin package
+    namespace "com.haarhish.MyNewApp"              // Updated to match Firebase and google-services.json
     ndkVersion rootProject.ext.ndkVersion
     compileSdk rootProject.ext.compileSdkVersion
     buildToolsVersion rootProject.ext.buildToolsVersion
 
     defaultConfig {
-        applicationId "com.haarhish.BloodLink"      // ✅ must match package name exactly
+        applicationId "com.haarhish.MyNewApp"      // Updated to match Firebase and google-services.json
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode 1
@@ -84,6 +84,15 @@ android {
 dependencies {
     implementation("com.facebook.react:react-android")
 
+    // Google Sign-In dependency
+    implementation 'com.google.android.gms:play-services-auth:20.7.0'
+
+    // Firebase BOM to manage Firebase versions
+    implementation platform('com.google.firebase:firebase-bom:32.2.3')
+
+    // Firebase Authentication
+    implementation 'com.google.firebase:firebase-auth'
+
     def frescoVersion = "2.6.0"
     def isGifEnabled = (findProperty('expo.gif.enabled') ?: "") == "true"
     def isWebpEnabled = (findProperty('expo.webp.enabled') ?: "") == "true"
@@ -105,3 +114,6 @@ dependencies {
         implementation jscFlavor
     }
 }
+
+// Apply the Google Services plugin at the end
+apply plugin: 'com.google.gms.google-services'

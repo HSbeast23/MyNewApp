@@ -10,8 +10,8 @@ import { useNavigation } from '@react-navigation/native';
 
 // ✅ Screens
 import HomeScreen from '../screens/HomeScreen';
-import DonateBloodScreen from '../screens/DonateBloodScreen';
-import RequestBloodScreen from '../screens/RequestBloodScreen';
+import DonateBloodForm from '../screens/DonateBloodScreen'; // ✅ correct
+import BloodRequestForm from '../screens/RequestBloodScreen';
 import MyProfileScreen from '../screens/MyProfileScreen';
 import DonateHistoryScreen from '../screens/DonateHistoryScreen';
 import AboutUsScreen from '../screens/AboutUsScreen';
@@ -43,8 +43,8 @@ export default function DrawerNavigator() {
       drawerContent={(props) => <CustomDrawerContent {...props} />}
     >
       <Drawer.Screen name="Home" component={HomeScreen} />
-      <Drawer.Screen name="DonateBlood" component={DonateBloodScreen} />
-      <Drawer.Screen name="RequestBlood" component={RequestBloodScreen} />
+      <Drawer.Screen name="DonateBlood" component={DonateBloodForm} />
+      <Drawer.Screen name="RequestBlood" component={BloodRequestForm} />
       <Drawer.Screen name="My Profile" component={MyProfileScreen} />
       <Drawer.Screen name="Donate History" component={DonateHistoryScreen} />
       <Drawer.Screen name="About Us" component={AboutUsScreen} />
