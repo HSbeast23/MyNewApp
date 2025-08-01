@@ -55,7 +55,7 @@ export default function MyProfileScreen() {
     <View style={styles.container}>
       {/* ✅ Profile Avatar */}
       <Image
-        source={require('../../assets/icon.png')} // Use ../../ if needed!
+        source={require('../../assets/icon.jpg')} // Use ../../ if needed!
         style={styles.avatar}
       />
 
