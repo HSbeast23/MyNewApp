@@ -4,7 +4,7 @@
     "slug": "MyNewApp",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/icon.png",
+    "icon": "./assets/icon.jpg",
     "userInterfaceStyle": "light",
     "splash": {
       "image": "./assets/splash-icon.png",
@@ -22,11 +22,10 @@
       "package": "com.haarhish.MyNewApp",
       "googleServicesFile": "./android/app/google-services.json",
       "adaptiveIcon": {
-        "foregroundImage": "./assets/icon.png",
+        "foregroundImage": "./assets/icon.jpg",
         "backgroundColor": "#ffffff"
       },
       "permissions": [
-        "NOTIFICATIONS",
         "NOTIFICATIONS"
       ],
       "versionCode": 2,
