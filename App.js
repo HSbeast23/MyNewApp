@@ -17,9 +17,9 @@ import {
 import * as Notifications from 'expo-notifications';
 import * as Device from 'expo-device';
 
-LogBox.ignoreLogs(['Setting a timer']); // optional to clean warning
+LogBox.ignoreLogs(['Setting a timer']); // optional
 
-// ✅ Notification handler config
+// ✅ Notification handler
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
     shouldShowAlert: true,
@@ -41,29 +41,28 @@ export default function App() {
   const responseListener = useRef();
 
   useEffect(() => {
-  // ✅ Google Sign-In
-  GoogleSignin.configure({
-  webClientId: '675390254350-damalk9bl472c3qr3pan12krc2gano7u.apps.googleusercontent.com', // ✅ Web OAuth Client ID (client_type: 3)
-  offlineAccess: true,
-});
+    // ✅ Google Sign-In config
+    GoogleSignin.configure({
+      webClientId: '675390254350-damalk9bl472c3qr3pan12krc2gano7u.apps.googleusercontent.com',
+      offlineAccess: true,
+    });
 
-
-
-    // ✅ Push Notification Registration
+    // ✅ Register for Push Notifications
     registerForPushNotificationsAsync();
 
-    // ✅ Listeners
+    // ✅ Add Notification Listeners
     notificationListener.current = Notifications.addNotificationReceivedListener(notification => {
-      console.log('Notification Received:', notification);
+      console.log('🔔 Notification Received:', notification);
     });
 
     responseListener.current = Notifications.addNotificationResponseReceivedListener(response => {
-      console.log('User interacted with notification:', response);
+      console.log('👆 User interacted with notification:', response);
     });
 
     return () => {
-      Notifications.removeNotificationSubscription(notificationListener.current);
-      Notifications.removeNotificationSubscription(responseListener.current);
+      // ✅ Clean up using new `.remove()` method
+      notificationListener.current?.remove();
+      responseListener.current?.remove();
     };
   }, []);
 
@@ -74,26 +73,30 @@ export default function App() {
 
 // ✅ Register for push notifications
 async function registerForPushNotificationsAsync() {
+  console.log('📡 Running registerForPushNotificationsAsync...');
+
   if (Device.isDevice) {
     const { status: existingStatus } = await Notifications.getPermissionsAsync();
     let finalStatus = existingStatus;
+
     if (existingStatus !== 'granted') {
       const { status } = await Notifications.requestPermissionsAsync();
       finalStatus = status;
     }
+
     if (finalStatus !== 'granted') {
-      alert('Failed to get push token for push notifications!');
+      alert('❌ Failed to get push token for notifications!');
       return;
     }
 
-    const token = (await Notifications.getExpoPushTokenAsync()).data;
-    console.log('Expo Push Token:', token);
+    const tokenData = await Notifications.getExpoPushTokenAsync();
+    console.log('✅ Expo Push Token:', tokenData.data);
   } else {
-    alert('Must use physical device for Push Notifications');
+    alert('⚠️ Must use a physical device for push notifications');
   }
 
   if (Platform.OS === 'android') {
-    Notifications.setNotificationChannelAsync('default', {
+    await Notifications.setNotificationChannelAsync('default', {
       name: 'default',
       importance: Notifications.AndroidImportance.MAX,
       vibrationPattern: [0, 250, 250, 250],
@@ -101,4 +104,3 @@ async function registerForPushNotificationsAsync() {
     });
   }
 }
-

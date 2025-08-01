@@ -1,5 +1,3 @@
-// ✅ src/screens/RequestBloodScreen.js
-
 import React, { useState, useEffect } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, StyleSheet,
@@ -32,30 +30,15 @@ export default function BloodRequestForm({ navigation }) {
 
   const bloodGroups = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'];
   const genders = ['Male', 'Female'];
-  const cities = [
-    'Ariyalur','Chengalpattu','Chennai','Coimbatore','Cuddalore','Dharmapuri',
-    'Dindigul','Erode','Kallakurichi','Kancheepuram','Karur','Krishnagiri',
-    'Mayiladuthurai','Nagapattinam','Namakkal','Nilgiris','Perambalur',
-    'Pudukottai','Ramanathapuram','Ranipet','Salem','Sivaganga','Tenkasi',
-    'Thanjavur','Theni','Thoothukudi','Tiruchirappalli','Tirunelveli',
-    'Tirupathur','Tiruppur','Tiruvallur','Tiruvannamalai','Tiruvarur',
-    'Vellore','Viluppuram','Virudhunagar'
-  ];
-  const purposes = [
-    'Accident / Emergency','Surgery (heart/kidney/brain)',
-    'Organ Transplant','Pregnancy / Delivery','Cancer Treatment',
-    'Anemia / Thalassemia / Sickle Cell','Dialysis / Renal Failure',
-    'Dengue / Malaria / Viral Fever','COVID‑19 Complications',
-    'Blood Disorders','Post‑operative Care','Other'
-  ];
-  const medicalConditions = [
-    'Diabetes','Hypertension','Cardiac Issues','Liver Disease',
-    'Kidney Disease','HIV','Hepatitis B or C','Cancer',
-    'None of the Above'
-  ];
+  const cities = [ 'Ariyalur','Chengalpattu','Chennai','Coimbatore','Cuddalore','Dharmapuri','Dindigul','Erode','Kallakurichi','Kancheepuram','Karur','Krishnagiri','Mayiladuthurai','Nagapattinam','Namakkal','Nilgiris','Perambalur','Pudukottai','Ramanathapuram','Ranipet','Salem','Sivaganga','Tenkasi','Thanjavur','Theni','Thoothukudi','Tiruchirappalli','Tirunelveli','Tirupathur','Tiruppur','Tiruvallur','Tiruvannamalai','Tiruvarur','Vellore','Viluppuram','Virudhunagar' ];
+  const purposes = ['Accident / Emergency','Surgery (heart/kidney/brain)','Organ Transplant','Pregnancy / Delivery','Cancer Treatment','Anemia / Thalassemia / Sickle Cell','Dialysis / Renal Failure','Dengue / Malaria / Viral Fever','COVID‑19 Complications','Blood Disorders','Post‑operative Care','Other'];
+  const medicalConditions = ['Diabetes','Hypertension','Cardiac Issues','Liver Disease','Kidney Disease','HIV','Hepatitis B or C','Cancer','None of the Above'];
 
   useEffect(() => {
-    registerForPushNotificationsAsync().then(token => setExpoPushToken(token));
+    registerForPushNotificationsAsync().then(token => {
+      console.log('✅ Receiver Push Token:', token);
+      if (token) setExpoPushToken(token);
+    });
   }, []);
 
   const registerForPushNotificationsAsync = async () => {
@@ -67,47 +50,49 @@ export default function BloodRequestForm({ navigation }) {
         finalStatus = status;
       }
       if (finalStatus !== 'granted') {
-        Alert.alert('Failed to get push token for push notification!');
-        return;
+        Alert.alert('Permission denied', 'Push notifications permission not granted');
+        return null;
       }
-      const token = (await Notifications.getExpoPushTokenAsync()).data;
-      return token;
+      const tokenData = await Notifications.getExpoPushTokenAsync();
+      return tokenData.data;
     } else {
-      Alert.alert('Must use physical device for Push Notifications');
+      Alert.alert('Must use physical device');
+      return null;
     }
   };
 
   const validatePhone = (number) => /^[6-9]\d{9}$/.test(number);
 
   const toggleCondition = (item) => {
-    if (conditions.includes(item)) {
-      setConditions(conditions.filter(c => c !== item));
-    } else {
-      setConditions([...conditions, item]);
-    }
+    setConditions(prev =>
+      prev.includes(item)
+        ? prev.filter(i => i !== item)
+        : [...prev, item]
+    );
   };
 
-  const sendPushNotification = async (expoPushToken, title, message) => {
-    const payload = {
-      to: expoPushToken,
-      sound: 'default',
-      title,
-      body: message,
-      data: { screen: 'Notification' },
-    };
-
+  const sendPushNotification = async (token, title, body) => {
     try {
+      const payload = {
+        to: token,
+        sound: 'default',
+        title,
+        body,
+        data: { screen: 'Notification' }
+      };
+
       await fetch('https://exp.host/--/api/v2/push/send', {
         method: 'POST',
         headers: {
           Accept: 'application/json',
-          'Accept-Encoding': 'gzip, deflate',
           'Content-Type': 'application/json',
         },
         body: JSON.stringify(payload),
       });
-    } catch (err) {
-      console.error('Push notification error:', err);
+
+      console.log('✅ Push sent to:', token);
+    } catch (error) {
+      console.error('❌ Push failed:', error);
     }
   };
 
@@ -116,17 +101,20 @@ export default function BloodRequestForm({ navigation }) {
       Alert.alert('Error', 'Please fill in all fields.');
       return;
     }
+
     if (!validatePhone(contactNumber)) {
-      Alert.alert('Invalid Phone', 'Please enter a valid Indian mobile number.');
+      Alert.alert('Invalid Phone', 'Enter a valid Indian mobile number.');
       return;
     }
 
     try {
       const uid = auth.currentUser?.uid;
       if (!uid) {
-        Alert.alert('Error', 'User not authenticated.');
+        Alert.alert('User Error', 'User not logged in.');
         return;
       }
+
+      console.log('📤 Submitting request with token:', expoPushToken);
 
       await addDoc(collection(db, 'Bloodreceiver'), {
         name,
@@ -141,10 +129,10 @@ export default function BloodRequestForm({ navigation }) {
         createdAt: serverTimestamp(),
         status: 'pending',
         uid,
-        pushToken: expoPushToken || null
+        pushToken: expoPushToken || null,
       });
 
-      // 🔔 Notify matched donors
+      // ✅ Notify matching donors
       const donorSnap = await getDocs(
         query(
           collection(db, 'BloodDonors'),
@@ -155,10 +143,12 @@ export default function BloodRequestForm({ navigation }) {
 
       donorSnap.forEach(async (docSnap) => {
         const donor = docSnap.data();
-        const donorToken = donor?.pushToken;
+        const donorToken = donor?.expoPushToken;
         if (donorToken) {
           const msg = `${name} needs ${bloodUnits} unit(s) of ${bloodGroup} blood in ${city}`;
           await sendPushNotification(donorToken, '🩸 New Blood Request', msg);
+        } else {
+          console.log('⚠️ Donor missing token:', donor?.name);
         }
       });
 
@@ -174,10 +164,12 @@ export default function BloodRequestForm({ navigation }) {
       setRequiredDateTime('');
       navigation.navigate('Home');
     } catch (error) {
-      console.error('Error submitting request:', error);
-      Alert.alert('Error', 'Failed to submit request.');
+      console.error('❌ Submission error:', error);
+      Alert.alert('Error', 'Submission failed.');
     }
   };
+
+
 
   return (
     <View style={styles.container}>
@@ -447,3 +439,8 @@ const styles = StyleSheet.create({
     color: '#444',
   },
 });
+
+
+
+
+

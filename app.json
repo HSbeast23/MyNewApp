@@ -16,13 +16,16 @@
       "bundleIdentifier": "com.haarhish.BloodLink"
     },
     "android": {
-      "package": "com.haarhish.BloodLink",
+      "package": "com.haarhish.MyNewApp",
       "googleServicesFile": "./android/app/google-services.json",
       "adaptiveIcon": {
         "foregroundImage": "./assets/icon.png",
         "backgroundColor": "#ffffff"
       },
-      "permissions": ["NOTIFICATIONS"]
+      "permissions": [
+        "NOTIFICATIONS"
+      ],
+      "versionCode": 2
     },
     "web": {
       "favicon": "./assets/favicon.png"
@@ -35,7 +38,6 @@
             "compileSdkVersion": 34,
             "targetSdkVersion": 34,
             "minSdkVersion": 24
-            
           }
         }
       ],
@@ -43,7 +45,9 @@
       "expo-web-browser",
       "expo-notifications"
     ],
-    "assetBundlePatterns": ["**/*"],
+    "assetBundlePatterns": [
+      "**/*"
+    ],
     "extra": {
       "eas": {
         "projectId": "f39544fe-e9d3-46ab-b253-4ecd6a0a4ede"

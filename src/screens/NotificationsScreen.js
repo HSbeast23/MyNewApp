@@ -11,6 +11,15 @@ import * as Notifications from 'expo-notifications';
 import { auth, db } from '../services/auth';
 import { useFocusEffect } from '@react-navigation/native';
 
+// ✅ Enable real app-style popup notifications
+Notifications.setNotificationHandler({
+  handleNotification: async () => ({
+    shouldShowAlert: true,
+    shouldPlaySound: true,
+    shouldSetBadge: false,
+  }),
+});
+
 const NotificationScreen = () => {
   const [user, setUser] = useState(null);
   const [donorMatches, setDonorMatches] = useState([]);
@@ -104,7 +113,6 @@ const NotificationScreen = () => {
     }
   };
 
-  // ✅ Updated push notification sender using fetch()
   const sendPushNotification = async (expoPushToken, title, message) => {
     const notificationPayload = {
       to: expoPushToken,
@@ -251,6 +259,29 @@ const NotificationScreen = () => {
       </View>
     ));
   };
+
+  // ✅ Handle tap on notification (optional for future navigation)
+  useEffect(() => {
+    const tapSubscription = Notifications.addNotificationResponseReceivedListener(response => {
+      const screen = response?.notification?.request?.content?.data?.screen;
+      if (screen === 'Notification') {
+        fetchNotifications();
+      }
+    });
+
+    return () => tapSubscription.remove();
+  }, []);
+
+  // ✅ NEW: Show push alerts while app is open (foreground)
+  useEffect(() => {
+    const foregroundSub = Notifications.addNotificationReceivedListener(notification => {
+      console.log("📲 Foreground notification received:", notification);
+      const { title, body } = notification.request.content;
+      Alert.alert(title || 'Notification', body || 'You have a new message');
+    });
+
+    return () => foregroundSub.remove();
+  }, []);
 
   if (loading) {
     return (
