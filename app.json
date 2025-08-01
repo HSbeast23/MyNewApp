@@ -25,6 +25,7 @@
         "foregroundImage": "./assets/icon.jpg",
         "backgroundColor": "#ffffff"
       },
+      "jsEngine": "jsc",  
       "permissions": [
         "NOTIFICATIONS"
       ],
