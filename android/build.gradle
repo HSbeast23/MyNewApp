@@ -5,26 +5,13 @@ buildscript {
     google()
     mavenCentral()
   }
-
   dependencies {
-    classpath('com.android.tools.build:gradle:8.4.0') // ✅ Android Gradle Plugin
+    classpath('com.android.tools.build:gradle')
     classpath('com.facebook.react:react-native-gradle-plugin')
-    classpath("org.jetbrains.kotlin:kotlin-gradle-plugin:1.8.22") // ✅ Kotlin
-    classpath('com.google.gms:google-services:4.3.15') // ✅ Firebase
+    classpath('org.jetbrains.kotlin:kotlin-gradle-plugin')
   }
 }
 
-ext {
-  buildToolsVersion = "34.0.0"
-  minSdkVersion = 24
-  compileSdkVersion = 34
-  targetSdkVersion = 34
-
-  supportLibVersion = "28.0.0"
-  googlePlayServicesAuthVersion = "19.2.0"
-}
-
-// ✅ React Native path resolution (clean and stable)
 def reactNativeAndroidDir = new File(
   providers.exec {
     workingDir(rootDir)
@@ -35,22 +22,16 @@ def reactNativeAndroidDir = new File(
 
 allprojects {
   repositories {
-    maven { url(reactNativeAndroidDir) }
+    maven {
+      // All of React Native (JS, Obj-C sources, Android binaries) is installed from npm
+      url(reactNativeAndroidDir)
+    }
+
     google()
     mavenCentral()
     maven { url 'https://www.jitpack.io' }
   }
 }
 
-// ✅ Required plugins
 apply plugin: "expo-root-project"
 apply plugin: "com.facebook.react.rootproject"
-
-// ✅ Kotlin JVM compatibility fix
-allprojects {
-  tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile).configureEach {
-    kotlinOptions {
-      jvmTarget = "17"
-    }
-  }
-}
