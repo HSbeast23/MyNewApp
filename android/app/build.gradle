@@ -19,13 +19,13 @@ react {
 }
 
 android {
-    namespace "com.haarhish.MyNewApp"
+    namespace 'com.haarhish.MyNewApp'
     compileSdk rootProject.ext.compileSdkVersion
     buildToolsVersion rootProject.ext.buildToolsVersion
     ndkVersion rootProject.ext.ndkVersion
 
     defaultConfig {
-        applicationId "com.haarhish.MyNewApp"
+        applicationId 'com.haarhish.MyNewApp'
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode 2
