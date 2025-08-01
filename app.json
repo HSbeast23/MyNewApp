@@ -13,7 +13,10 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.haarhish.BloodLink"
+      "bundleIdentifier": "com.haarhish.BloodLink",
+      "runtimeVersion": {
+        "policy": "appVersion"
+      }
     },
     "android": {
       "package": "com.haarhish.MyNewApp",
@@ -23,9 +26,11 @@
         "backgroundColor": "#ffffff"
       },
       "permissions": [
+        "NOTIFICATIONS",
         "NOTIFICATIONS"
       ],
-      "versionCode": 2
+      "versionCode": 2,
+      "runtimeVersion": "1.0.0"
     },
     "web": {
       "favicon": "./assets/favicon.png"
@@ -53,6 +58,9 @@
         "projectId": "f39544fe-e9d3-46ab-b253-4ecd6a0a4ede"
       }
     },
-    "owner": "haarhish"
+    "owner": "haarhish",
+    "updates": {
+      "url": "https://u.expo.dev/f39544fe-e9d3-46ab-b253-4ecd6a0a4ede"
+    }
   }
 }
