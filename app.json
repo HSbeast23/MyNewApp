@@ -34,20 +34,21 @@
       "favicon": "./assets/favicon.png"
     },
     "plugins": [
-  [
-    "expo-build-properties",
-    {
-      "android": {
-        "ndkVersion": "27.0.12077973",
-        "cmakeVersion": "3.22.1",
-        "compileSdkVersion": 35,
-        "targetSdkVersion": 35,
-        "minSdkVersion": 24,
-        "kotlinVersion": "1.9.22",
-        "kotlinJvmTarget": "17"
-      }
-    }
-  ],
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "ndkVersion": "27.0.12077973",
+            "cmakeVersion": "3.22.1",
+            "compileSdkVersion": 35,
+            "targetSdkVersion": 35,
+            "minSdkVersion": 24,
+            "kotlinJvmTarget": "17",
+            "jvmTarget": "17"
+
+          }
+        }
+      ],
       "expo-font",
       "expo-web-browser",
       "expo-notifications"
