@@ -21,7 +21,7 @@
         "buildType": "apk"
       },
       "env": {
-        "EXPO_USE_UPDATES": "false"
+        "EXPO_USE_UPDATES": "true"  
       }
     },
     "production": {

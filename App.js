@@ -1,9 +1,10 @@
 // App.js
+import 'react-native-reanimated'; // Must be first
 import React, { useEffect, useRef } from 'react';
 import { useFonts } from 'expo-font';
+import { LogBox, Platform } from 'react-native';
 import AppNavigator from './src/navigation/AppNavigator';
 import { GoogleSignin } from '@react-native-google-signin/google-signin';
-import { LogBox, Platform } from 'react-native';
 
 // Fonts & Icons
 import { Ionicons, FontAwesome5 } from '@expo/vector-icons';
@@ -13,13 +14,14 @@ import {
   Poppins_700Bold,
 } from '@expo-google-fonts/poppins';
 
-// ✅ Notifications
+// Notifications
 import * as Notifications from 'expo-notifications';
 import * as Device from 'expo-device';
 
-LogBox.ignoreLogs(['Setting a timer']); // optional
+// Silence timer warnings (optional)
+LogBox.ignoreLogs(['Setting a timer']);
 
-// ✅ Notification handler
+// ✅ Notification handler setup
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
     shouldShowAlert: true,
@@ -41,16 +43,16 @@ export default function App() {
   const responseListener = useRef();
 
   useEffect(() => {
-    // ✅ Google Sign-In config
+    // ✅ Configure Google Sign-In
     GoogleSignin.configure({
       webClientId: '675390254350-damalk9bl472c3qr3pan12krc2gano7u.apps.googleusercontent.com',
       offlineAccess: true,
     });
 
-    // ✅ Register for Push Notifications
+    // ✅ Register for push notifications
     registerForPushNotificationsAsync();
 
-    // ✅ Add Notification Listeners
+    // ✅ Notification event listeners
     notificationListener.current = Notifications.addNotificationReceivedListener(notification => {
       console.log('🔔 Notification Received:', notification);
     });
@@ -60,7 +62,6 @@ export default function App() {
     });
 
     return () => {
-      // ✅ Clean up using new `.remove()` method
       notificationListener.current?.remove();
       responseListener.current?.remove();
     };
@@ -71,7 +72,7 @@ export default function App() {
   return <AppNavigator />;
 }
 
-// ✅ Register for push notifications
+// ✅ Register device for push notifications
 async function registerForPushNotificationsAsync() {
   console.log('📡 Running registerForPushNotificationsAsync...');
 
