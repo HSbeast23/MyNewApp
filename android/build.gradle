@@ -1,17 +1,29 @@
 // Top-level build file where you can add configuration options common to all sub-projects/modules.
 
 buildscript {
+  ext {
+  buildToolsVersion = "34.0.0"
+  minSdkVersion = 24
+  compileSdkVersion = 35
+  targetSdkVersion = 35
+  ndkVersion = "25.2.9519653"
+}
+
+
   repositories {
     google()
     mavenCentral()
   }
+
   dependencies {
-    classpath('com.android.tools.build:gradle')
-    classpath('com.facebook.react:react-native-gradle-plugin')
-    classpath('org.jetbrains.kotlin:kotlin-gradle-plugin')
+    classpath("com.android.tools.build:gradle:8.2.2") // ✅ Match Gradle wrapper version
+    classpath("com.facebook.react:react-native-gradle-plugin")
+    classpath("org.jetbrains.kotlin:kotlin-gradle-plugin:1.9.22")
+    classpath("com.google.gms:google-services:4.4.0") // ✅ For Firebase auth, Firestore, messaging
   }
 }
 
+// Required for resolving React Native modules correctly
 def reactNativeAndroidDir = new File(
   providers.exec {
     workingDir(rootDir)
@@ -23,15 +35,14 @@ def reactNativeAndroidDir = new File(
 allprojects {
   repositories {
     maven {
-      // All of React Native (JS, Obj-C sources, Android binaries) is installed from npm
       url(reactNativeAndroidDir)
     }
-
     google()
     mavenCentral()
     maven { url 'https://www.jitpack.io' }
   }
 }
 
+// ✅ Needed for Expo managed/native workflow
 apply plugin: "expo-root-project"
 apply plugin: "com.facebook.react.rootproject"
