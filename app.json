@@ -1,7 +1,7 @@
 {
   "expo": {
     "name": "BloodLink",
-    "slug": "MyNewApp",
+    "slug": "mynewapp",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.jpg",
@@ -26,7 +26,9 @@
         "backgroundColor": "#ffffff"
       },
       "jsEngine": "jsc",
-      "permissions": ["NOTIFICATIONS"],
+      "permissions": [
+        "NOTIFICATIONS"
+      ],
       "versionCode": 2,
       "runtimeVersion": "1.0.0"
     },
@@ -45,7 +47,6 @@
             "minSdkVersion": 24,
             "kotlinJvmTarget": "17",
             "jvmTarget": "17"
-
           }
         }
       ],
@@ -53,15 +54,15 @@
       "expo-web-browser",
       "expo-notifications"
     ],
-    "assetBundlePatterns": ["**/*"],
+    "assetBundlePatterns": [
+      "**/*"
+    ],
     "extra": {
       "eas": {
-        "projectId": "f39544fe-e9d3-46ab-b253-4ecd6a0a4ede"
+        "projectId": "bf821e7e-5d1b-4cf0-a257-417696fb5c85"
       }
     },
-    "owner": "haarhish",
-    "updates": {
-      "url": "https://u.expo.dev/f39544fe-e9d3-46ab-b253-4ecd6a0a4ede"
-    }
+    "owner": "haarhish23",
+    "updates": {}
   }
 }

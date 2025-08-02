@@ -1,6 +1,6 @@
 // ✅ src/screens/SignUpScreen.js
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -17,10 +17,13 @@ import {
   signInWithCredential,
   createUserWithEmailAndPassword,
 } from 'firebase/auth';
+import * as WebBrowser from 'expo-web-browser';
+import * as Google from 'expo-auth-session/providers/google';
+import { useAuthRequest } from 'expo-auth-session';
 import { getDoc, doc } from 'firebase/firestore';
 
 import { auth, db } from '../services/auth';
-import { GoogleSignin } from '@react-native-google-signin/google-signin';
+WebBrowser.maybeCompleteAuthSession();
 
 export default function SignUpScreen() {
   const [fullName, setFullName] = useState('');
@@ -33,40 +36,38 @@ export default function SignUpScreen() {
 
   const navigation = useNavigation();
 
-  useEffect(() => {
-    GoogleSignin.configure({
-      webClientId: "675390254350-damalk9bl472c3qr3pan12krc2gano7u.apps.googleusercontent.com",
-      offlineAccess: true,
-    });
-  }, []);
+
+  // Expo AuthSession Google
+  const [request, response, promptAsync] = Google.useAuthRequest({
+    expoClientId: '675390254350-damalk9bl472c3qr3pan12krc2gano7u.apps.googleusercontent.com',
+    androidClientId: '675390254350-damalk9bl472c3qr3pan12krc2gano7u.apps.googleusercontent.com',
+    iosClientId: '675390254350-damalk9bl472c3qr3pan12krc2gano7u.apps.googleusercontent.com',
+  });
+
+  React.useEffect(() => {
+    if (response?.type === 'success') {
+      const { id_token } = response.params;
+      const credential = GoogleAuthProvider.credential(id_token);
+      signInWithCredential(auth, credential)
+        .then(async (userCredential) => {
+          Alert.alert('✅ Success', 'Signed in with Google!');
+          const uid = userCredential.user.uid;
+          const userDocRef = doc(db, 'users', uid);
+          const userDocSnap = await getDoc(userDocRef);
+          if (userDocSnap.exists()) {
+            navigation.replace('MainDrawer');
+          } else {
+            navigation.replace('PersonalDataForm');
+          }
+        })
+        .catch((error) => {
+          Alert.alert('❌ Google Sign-In Failed', error.message);
+        });
+    }
+  }, [response]);
 
   const handleGoogleSignIn = async () => {
-    try {
-      await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
-      const userInfo = await GoogleSignin.signIn();
-      const { idToken } = await GoogleSignin.getTokens();
-
-      const googleCredential = GoogleAuthProvider.credential(idToken);
-      const userCredential = await signInWithCredential(auth, googleCredential);
-
-      Alert.alert('✅ Success', 'Signed in with Google!');
-
-      const uid = userCredential.user.uid;
-      const userDocRef = doc(db, 'users', uid);
-      const userDocSnap = await getDoc(userDocRef);
-
-      if (userDocSnap.exists()) {
-        console.log('✅ Personal data exists.');
-        navigation.replace('MainDrawer');
-      } else {
-        console.log('⚠️ No personal data found.');
-        navigation.replace('PersonalDataForm');
-      }
-
-    } catch (error) {
-      console.error('Google Sign-In Error:', error);
-      Alert.alert('❌ Google Sign-In Failed', error.message);
-    }
+    promptAsync();
   };
 
   const handleSignUp = async () => {

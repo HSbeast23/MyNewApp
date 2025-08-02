@@ -3,7 +3,6 @@ import React, { useEffect, useRef } from 'react';
 import { useFonts } from 'expo-font';
 import { LogBox, Platform } from 'react-native';
 import AppNavigator from './src/navigation/AppNavigator';
-import { GoogleSignin } from '@react-native-google-signin/google-signin';
 
 // Fonts & Icons
 import { Ionicons, FontAwesome5 } from '@expo/vector-icons';
@@ -42,12 +41,6 @@ export default function App() {
   const responseListener = useRef();
 
   useEffect(() => {
-    // ✅ Configure Google Sign-In
-    GoogleSignin.configure({
-      webClientId: '675390254350-damalk9bl472c3qr3pan12krc2gano7u.apps.googleusercontent.com',
-      offlineAccess: true,
-    });
-
     // ✅ Register for push notifications
     registerForPushNotificationsAsync();
 

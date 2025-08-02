@@ -1,6 +1,10 @@
 // ✅ src/screens/LoginScreen.js
 
 import React, { useState } from 'react';
+import * as WebBrowser from 'expo-web-browser';
+import * as Google from 'expo-auth-session/providers/google';
+import { GoogleAuthProvider, signInWithCredential } from 'firebase/auth';
+import { FontAwesome5 } from '@expo/vector-icons';
 import {
   View,
   Text,
@@ -15,6 +19,7 @@ import {
 
 // ✅ Use your own auth.js
 import { auth, db } from '../services/auth'; // matches your structure
+WebBrowser.maybeCompleteAuthSession();
 
 import { signInWithEmailAndPassword } from 'firebase/auth';
 import { getDoc, doc } from 'firebase/firestore';
@@ -22,6 +27,38 @@ import { getDoc, doc } from 'firebase/firestore';
 export default function LoginScreen({ navigation }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+
+  // Expo AuthSession Google
+  const [request, response, promptAsync] = Google.useAuthRequest({
+    expoClientId: '675390254350-damalk9bl472c3qr3pan12krc2gano7u.apps.googleusercontent.com',
+    androidClientId: '675390254350-damalk9bl472c3qr3pan12krc2gano7u.apps.googleusercontent.com',
+    iosClientId: '675390254350-damalk9bl472c3qr3pan12krc2gano7u.apps.googleusercontent.com',
+  });
+
+  React.useEffect(() => {
+    if (response?.type === 'success') {
+      const { id_token } = response.params;
+      const credential = GoogleAuthProvider.credential(id_token);
+      signInWithCredential(auth, credential)
+        .then(async (userCredential) => {
+          Alert.alert('✅ Success', 'Signed in with Google!');
+          const uid = userCredential.user.uid;
+          const userDoc = await getDoc(doc(db, 'users', uid));
+          if (userDoc.exists()) {
+            navigation.replace('MainDrawer');
+          } else {
+            navigation.replace('PersonalDataForm');
+          }
+        })
+        .catch((error) => {
+          Alert.alert('❌ Google Sign-In Failed', error.message);
+        });
+    }
+  }, [response]);
+
+  const handleGoogleSignIn = async () => {
+    promptAsync();
+  };
 
   const handleLogin = async () => {
     if (!email || !password) {
@@ -87,6 +124,11 @@ export default function LoginScreen({ navigation }) {
 
       <TouchableOpacity style={styles.button} onPress={handleLogin}>
         <Text style={styles.buttonText}>Login</Text>
+      </TouchableOpacity>
+
+      <TouchableOpacity style={[styles.button, { backgroundColor: '#eee', flexDirection: 'row', alignItems: 'center', marginBottom: 10 }]} onPress={handleGoogleSignIn}>
+        <FontAwesome5 name="google" size={22} color="black" style={{ marginRight: 8 }} />
+        <Text style={[styles.buttonText, { color: '#333' }]}>Continue with Google</Text>
       </TouchableOpacity>
 
       <TouchableOpacity onPress={() => navigation.navigate('SignUp')}>

@@ -10,7 +10,6 @@ import { getFirestore } from 'firebase/firestore';
 import { getAnalytics, isSupported } from 'firebase/analytics';
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { GoogleSignin } from '@react-native-google-signin/google-signin';
 
 // ✅ Your Firebase config
 const firebaseConfig = {
@@ -54,12 +53,12 @@ isSupported().then((supported) => {
   }
 });
 
-// ✅ Google Sign-Out helper
+
+// ✅ Google Sign-Out helper (Expo AuthSession: just sign out from Firebase)
 export const signOutUser = async () => {
   try {
-    await GoogleSignin.signOut();
     await auth.signOut();
-    console.log('✅ User signed out from Google & Firebase.');
+    console.log('✅ User signed out from Firebase.');
   } catch (error) {
     console.error('❌ Sign out error:', error);
   }
