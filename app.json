@@ -29,7 +29,7 @@
       "permissions": [
         "NOTIFICATIONS"
       ],
-      "versionCode": 2,
+      "versionCode": 6,
       "runtimeVersion": "1.0.0"
     },
     "web": {
@@ -39,7 +39,8 @@
       [
         "expo-build-properties",
         {
-          "android": {
+          "android": { 
+            "kotlinVersion": "1.9.22",
             "ndkVersion": "27.0.12077973",
             "cmakeVersion": "3.22.1",
             "compileSdkVersion": 35,
