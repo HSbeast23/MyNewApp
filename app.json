@@ -1,69 +1,54 @@
 {
-  "expo": {
-    "name": "BloodLink",
-    "slug": "mynewapp",
-    "version": "1.0.0",
-    "orientation": "portrait",
-    "icon": "./assets/icon.jpg",
-    "userInterfaceStyle": "light",
-    "splash": {
-      "image": "./assets/splash-icon.png",
-      "resizeMode": "contain",
-      "backgroundColor": "#ffffff"
-    },
-    "ios": {
-      "supportsTablet": true,
-      "bundleIdentifier": "com.haarhish.BloodLink",
-      "runtimeVersion": {
-        "policy": "appVersion"
-      }
-    },
-    "android": {
-      "package": "com.haarhish.MyNewApp",
-      "googleServicesFile": "./google-services.json",
-      "adaptiveIcon": {
-        "foregroundImage": "./assets/icon.jpg",
-        "backgroundColor": "#ffffff"
+  "cli": {
+    "version": ">= 3.15.0",
+    "appVersionSource": "local"
+  },
+  "build": {
+    "development": {
+      "developmentClient": true,
+      "distribution": "internal",
+      "android": {
+        "buildType": "apk",
+        "ndk": "27.0.12077973"
       },
-      "jsEngine": "jsc",
-      "permissions": [
-        "NOTIFICATIONS"
-      ],
-      "versionCode": 6,
-      "runtimeVersion": "1.0.0"
-    },
-    "web": {
-      "favicon": "./assets/favicon.png"
-    },
-    "plugins": [
-      [
-        "expo-build-properties",
-        {
-          "android": { 
-            "kotlinVersion": "1.9.22",
-            "ndkVersion": "27.0.12077973",
-            "cmakeVersion": "3.22.1",
-            "compileSdkVersion": 35,
-            "targetSdkVersion": 35,
-            "minSdkVersion": 24,
-            "kotlinJvmTarget": "17",
-            "jvmTarget": "17"
-          }
-        }
-      ],
-      "expo-font",
-      "expo-web-browser",
-      "expo-notifications"
-    ],
-    "assetBundlePatterns": [
-      "**/*"
-    ],
-    "extra": {
-      "eas": {
-        "projectId": "bf821e7e-5d1b-4cf0-a257-417696fb5c85"
+      "env": {
+        "EXPO_USE_UPDATES": "false"
       }
     },
-    "owner": "haarhish23",
-    "updates": {}
+    "preview-apk": {
+      "distribution": "internal",
+      "channel": "preview-apk",
+      "android": {
+        "buildType": "apk",
+        "ndk": "27.0.12077973"
+      },
+      "env": {
+        "EXPO_USE_UPDATES": "true"
+      }
+    },
+    "production": {
+      "channel": "production",
+      "android": {
+        "buildType": "app-bundle",
+        "ndk": "27.0.12077973"
+      },
+      "autoIncrement": true,
+      "env": {
+        "EXPO_USE_UPDATES": "true"
+      }
+    }
+  },
+  "submit": {
+    "production": {}
+  },
+  "extra": {
+    "eas": {
+      "projectId": "bf821e7e-5d1b-4cf0-a257-417696fb5c85"
+    }
+  },
+  "expo": {
+    "android": {
+      "package": "com.haarhish23.mynewapp"
+    }
   }
 }

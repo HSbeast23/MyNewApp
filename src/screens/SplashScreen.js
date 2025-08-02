@@ -1,28 +1,27 @@
-import React, { useEffect } from 'react';
-import { View, StyleSheet } from 'react-native';
-import LottieView from 'lottie-react-native';
+// src/screens/SplashScreen.js
 
-// ✅ Import Firebase Auth
-import { auth } from '../services/auth'; // adjust your path
+import React, { useEffect } from 'react';
+import { View, StyleSheet, Text } from 'react-native';
+import LottieView from 'lottie-react-native';
+import { auth } from '../services/auth';
 import { onAuthStateChanged } from 'firebase/auth';
 
 export default function SplashScreen({ navigation }) {
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
-      // ✅ Wait 3 seconds before navigating
-      setTimeout(() => {
+    const timer = setTimeout(() => {
+      onAuthStateChanged(auth, (user) => {
         if (user) {
-          console.log('✅ User logged in:', user.email);
+          console.log('✅ User found:', user.email);
           navigation.replace('MainDrawer');
         } else {
-          console.log('🔒 No user logged in, go to Login.');
+          console.log('🔒 No user, redirecting to Login...');
           navigation.replace('Login');
         }
-      }, 3000); // 3000ms = 3 seconds
-    });
+      });
+    }, 2500); // Wait 2.5 sec to show splash
 
-    return unsubscribe;
-  }, [navigation]);
+    return () => clearTimeout(timer);
+  }, []);
 
   return (
     <View style={styles.container}>
@@ -31,7 +30,9 @@ export default function SplashScreen({ navigation }) {
         autoPlay
         loop={false}
         style={{ width: 300, height: 300 }}
+        onAnimationFinish={() => console.log('✅ Lottie animation finished')}
       />
+      <Text style={styles.text}>Initializing...</Text>
     </View>
   );
 }
@@ -39,11 +40,13 @@ export default function SplashScreen({ navigation }) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fff', // your theme color
+    backgroundColor: '#fff', // Theme color
     alignItems: 'center',
     justifyContent: 'center',
   },
+  text: {
+    fontSize: 14,
+    color: '#999',
+    marginTop: 20,
+  },
 });
-
-
-
