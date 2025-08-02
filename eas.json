@@ -9,7 +9,7 @@
       "distribution": "internal",
       "android": {
         "buildType": "apk",
-        "ndk": "26.2.11394342"
+        "ndk": "27.0.12077973"
       },
       "env": {
         "EXPO_USE_UPDATES": "false"
@@ -20,7 +20,7 @@
       "channel": "preview-apk",
       "android": {
         "buildType": "apk",
-        "ndk": "26.2.11394342"
+        "ndk": "27.0.12077973"
       },
       "env": {
         "EXPO_USE_UPDATES": "true"
@@ -30,7 +30,7 @@
       "channel": "production",
       "android": {
         "buildType": "app-bundle",
-        "ndk": "26.2.11394342"
+        "ndk": "27.0.12077973"
       },
       "autoIncrement": true,
       "env": {
