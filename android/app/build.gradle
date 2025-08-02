@@ -1,6 +1,5 @@
 apply plugin: "com.android.application"
 apply plugin: "org.jetbrains.kotlin.android"
-apply plugin: "com.google.gms.google-services" // ✅ Firebase plugin
 apply plugin: "com.facebook.react"
 
 def projectRoot = rootDir.getAbsoluteFile().getParentFile().getAbsolutePath()
@@ -21,10 +20,10 @@ def jscFlavor = 'io.github.react-native-community:jsc-android:2026004.+'
 
 android {
     compileSdk rootProject.ext.compileSdkVersion
-    namespace "com.haarhish.MyNewApp" // ✅ match with google-services.json
+    namespace "com.haarhish.MyNewApp"
 
     defaultConfig {
-        applicationId "com.haarhish.MyNewApp" // ✅ match with google-services.json
+        applicationId "com.haarhish.MyNewApp"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode 1
@@ -64,7 +63,7 @@ android {
     }
 
     kotlinOptions {
-        jvmTarget = "17" // ✅ ensure compatibility with JDK 17
+        jvmTarget = "17"
     }
 
     buildFeatures {
@@ -86,17 +85,18 @@ android {
 
 dependencies {
     implementation("com.facebook.react:react-android")
-    implementation("androidx.core:core-splashscreen:1.0.1") // optional for splash
+    implementation("androidx.core:core-splashscreen:1.0.1")
 
-    // Firebase dependencies (optional, add others based on usage)
+    // Firebase dependencies
     implementation platform('com.google.firebase:firebase-bom:32.7.3')
     implementation 'com.google.firebase:firebase-auth'
     implementation 'com.google.firebase:firebase-firestore'
     implementation 'com.google.firebase:firebase-messaging'
 
-    def isGifEnabled = (findProperty('expo.gif.enabled') ?: "") == "true";
-    def isWebpEnabled = (findProperty('expo.webp.enabled') ?: "") == "true";
-    def isWebpAnimatedEnabled = (findProperty('expo.webp.animated') ?: "") == "true";
+    // Image formats
+    def isGifEnabled = (findProperty('expo.gif.enabled') ?: "") == "true"
+    def isWebpEnabled = (findProperty('expo.webp.enabled') ?: "") == "true"
+    def isWebpAnimatedEnabled = (findProperty('expo.webp.animated') ?: "") == "true"
 
     if (isGifEnabled) {
         implementation("com.facebook.fresco:animated-gif:${expoLibs.versions.fresco.get()}")
@@ -115,3 +115,6 @@ dependencies {
         implementation jscFlavor
     }
 }
+
+// ✅ MUST be the last line
+apply plugin: "com.google.gms.google-services"
