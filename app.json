@@ -38,8 +38,8 @@
         "expo-build-properties",
         {
           "android": {
-            "ndkVersion": "26.2.11394342",     
-            "cmakeVersion": "3.22.1",          
+            "ndkVersion": "27.0.12077973",      
+            "cmakeVersion": "3.22.1",           
             "compileSdkVersion": 35,
             "targetSdkVersion": 35,
             "minSdkVersion": 24
