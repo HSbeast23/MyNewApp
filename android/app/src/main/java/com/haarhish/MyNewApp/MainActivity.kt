@@ -5,7 +5,7 @@ import com.facebook.react.ReactActivity
 
 class MainActivity : ReactActivity() {
   override fun onCreate(savedInstanceState: Bundle?) {
-    setTheme(R.style.AppTheme) // for expo-splash-screen
+    setTheme(R.style.AppTheme) // Required for expo-splash-screen
     super.onCreate(null)
   }
 
