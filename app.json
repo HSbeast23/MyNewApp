@@ -25,10 +25,8 @@
         "foregroundImage": "./assets/icon.jpg",
         "backgroundColor": "#ffffff"
       },
-      "jsEngine": "jsc",  
-      "permissions": [
-        "NOTIFICATIONS"
-      ],
+      "jsEngine": "jsc",
+      "permissions": ["NOTIFICATIONS"],
       "versionCode": 2,
       "runtimeVersion": "1.0.0"
     },
@@ -40,6 +38,8 @@
         "expo-build-properties",
         {
           "android": {
+            "ndkVersion": "26.2.11394342",     
+            "cmakeVersion": "3.22.1",          
             "compileSdkVersion": 35,
             "targetSdkVersion": 35,
             "minSdkVersion": 24
@@ -50,9 +50,7 @@
       "expo-web-browser",
       "expo-notifications"
     ],
-    "assetBundlePatterns": [
-      "**/*"
-    ],
+    "assetBundlePatterns": ["**/*"],
     "extra": {
       "eas": {
         "projectId": "f39544fe-e9d3-46ab-b253-4ecd6a0a4ede"
