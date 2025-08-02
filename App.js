@@ -1,5 +1,4 @@
 // App.js
-import 'react-native-reanimated'; // Must be first
 import React, { useEffect, useRef } from 'react';
 import { useFonts } from 'expo-font';
 import { LogBox, Platform } from 'react-native';
