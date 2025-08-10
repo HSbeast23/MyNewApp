@@ -1,24 +1,124 @@
-import React, { useRef, useState } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, FlatList, Image, Dimensions } from 'react-native';
 import { Ionicons, MaterialIcons, FontAwesome5, MaterialCommunityIcons } from '@expo/vector-icons';
+import { collection, query, where, onSnapshot, getDocs, getDoc, doc } from 'firebase/firestore';
+import { db, auth } from '../services/auth';
+import { useTranslation } from '../hooks/useTranslation';
 
 const { width } = Dimensions.get('window'); // ✅ Declare only once at the top!
 
 // Your slide data
 const slides = [
-  { id: '1', image: require('../../assets/slide1.png') },
-  { id: '2', image: require('../../assets/slide2.png') },
-  { id: '3', image: require('../../assets/slide3.png') },
-  { id: '4', image: require('../../assets/slide4.png') },
+  { id: '1', image: require('../../assets/im1.webp') },
+  { id: '2', image: require('../../assets/im2.png') },
+  { id: '3', image: require('../../assets/im3.webp') },
 ];
 
 export default function HomeScreen({ navigation }) {
-  const userName = "Haarhish";
-  const userId = "BloodLink-163283";
-  const userBloodGroup = "B+";
-
+  const { t, currentLanguage } = useTranslation();
   const [currentIndex, setCurrentIndex] = useState(0);
+  const [userProfile, setUserProfile] = useState(null);
+  const [notificationCount, setNotificationCount] = useState(0);
   const slidesRef = useRef(null);
+
+  // Fetch real user data
+  useEffect(() => {
+    const fetchUserData = async () => {
+      const user = auth.currentUser;
+      if (!user) return;
+
+      try {
+        // Get user profile
+        const userQuery = query(
+          collection(db, 'users'),
+          where('uid', '==', user.uid)
+        );
+        const userSnapshot = await getDocs(userQuery);
+
+        if (!userSnapshot.empty) {
+          setUserProfile(userSnapshot.docs[0].data());
+        } else {
+          // Try direct document access
+          const userDocRef = doc(db, 'users', user.uid);
+          const userDoc = await getDoc(userDocRef);
+          if (userDoc.exists()) {
+            setUserProfile(userDoc.data());
+          }
+        }
+      } catch (error) {
+        console.log('Error fetching user data:', error);
+      }
+    };
+
+    fetchUserData();
+  }, []);
+
+  // Listen for notifications
+  useEffect(() => {
+    const user = auth.currentUser;
+    if (!user || !userProfile) return;
+
+    let unsubscribe = () => { };
+
+    // Check if user is a donor or receiver and listen for relevant notifications
+    const setupNotificationListener = async () => {
+      try {
+        // Check if user has requests (receiver)
+        const requestsQuery = query(
+          collection(db, 'Bloodreceiver'),
+          where('uid', '==', user.uid)
+        );
+        const requestsSnapshot = await getDocs(requestsQuery);
+
+        if (!requestsSnapshot.empty) {
+          // User is a receiver - listen for donor responses
+          unsubscribe = onSnapshot(requestsQuery, (snapshot) => {
+            let newCount = 0;
+            snapshot.forEach((doc) => {
+              const data = doc.data();
+              if (data.responses && data.responses.length > 0) {
+                data.responses.forEach((response) => {
+                  if (!response.seenByReceiver) {
+                    newCount++;
+                  }
+                });
+              }
+            });
+            setNotificationCount(newCount);
+          });
+        } else {
+          // User is a donor - listen for matching requests
+          const donorQuery = query(
+            collection(db, 'Bloodreceiver'),
+            where('city', '==', userProfile.city),
+            where('bloodGroup', '==', userProfile.bloodGroup),
+            where('status', '==', 'pending')
+          );
+
+          unsubscribe = onSnapshot(donorQuery, (snapshot) => {
+            let newCount = 0;
+            snapshot.forEach((doc) => {
+              const data = doc.data();
+              const hasResponded = data.responses?.some(response => response.donorUid === user.uid);
+              if (!hasResponded) {
+                const requestTime = data.createdAt?.toDate();
+                if (requestTime && (Date.now() - requestTime.getTime()) < 24 * 60 * 60 * 1000) {
+                  newCount++;
+                }
+              }
+            });
+            setNotificationCount(newCount);
+          });
+        }
+      } catch (error) {
+        console.log('Error setting up notification listener:', error);
+      }
+    };
+
+    setupNotificationListener();
+
+    return () => unsubscribe();
+  }, [userProfile]);
 
   const viewableItemsChanged = useRef(({ viewableItems }) => {
     if (viewableItems.length > 0) {
@@ -37,15 +137,25 @@ export default function HomeScreen({ navigation }) {
             <Ionicons name="menu" size={28} color="#fff" />
           </TouchableOpacity>
           <Text style={styles.headerText}>BloodLink</Text>
-          <Ionicons name="notifications-outline" size={24} color="#fff" />
+          <TouchableOpacity
+            style={styles.notificationContainer}
+            onPress={() => navigation.navigate('Notifications')}
+          >
+            <Ionicons name="notifications-outline" size={24} color="#fff" />
+            {notificationCount > 0 && (
+              <View style={styles.notificationBadge}>
+                <Text style={styles.notificationBadgeText}>{notificationCount}</Text>
+              </View>
+            )}
+          </TouchableOpacity>
         </View>
 
         {/* User card */}
         <View style={styles.userCard}>
-          <Text style={styles.userId}>{userId}</Text>
-          <Text style={styles.userName}>{userName}</Text>
+          <Text style={styles.userId}>BloodLink-{userProfile?.uid?.slice(-6) || '000000'}</Text>
+          <Text style={styles.userName}>{userProfile?.name || 'User'}</Text>
           <View style={styles.bloodGroup}>
-            <Text style={styles.bloodGroupText}>{userBloodGroup}</Text>
+            <Text style={styles.bloodGroupText}>{userProfile?.bloodGroup || 'Unknown'}</Text>
           </View>
         </View>
 
@@ -54,10 +164,10 @@ export default function HomeScreen({ navigation }) {
           <FlatList
             data={slides}
             renderItem={({ item }) => (
-              <View style={{ width, justifyContent: 'center', alignItems: 'center' }}>
+              <View style={styles.slideContainer}>
                 <Image
                   source={item.image}
-                  style={{ width: '90%', height: 200, resizeMode: 'contain' }}
+                  style={styles.slideImage}
                 />
               </View>
             )}
@@ -92,7 +202,7 @@ export default function HomeScreen({ navigation }) {
             onPress={() => navigation.navigate('RequestBlood')}
           >
             <MaterialIcons name="bloodtype" size={36} color="#d32f2f" />
-            <Text style={styles.iconLabel}>Request for Blood</Text>
+            <Text style={styles.iconLabel}>{t('requestBlood')}</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -100,19 +210,32 @@ export default function HomeScreen({ navigation }) {
             onPress={() => navigation.navigate('DonateBlood')}
           >
             <FontAwesome5 name="hand-holding-medical" size={36} color="#388e3c" />
-            <Text style={styles.iconLabel}>Donate</Text>
+            <Text style={styles.iconLabel}>{t('donateBlood')}</Text>
           </TouchableOpacity>
         </View>
 
         <View style={styles.iconRow}>
-          <TouchableOpacity style={styles.iconButton}>
-            <Ionicons name="location" size={36} color="#1976d2" />
-            <Text style={styles.iconLabel}>BloodLink Near</Text>
+          <TouchableOpacity
+            style={styles.iconButton}
+            onPress={() => navigation.navigate('Notifications')}
+          >
+            <View style={styles.iconWithBadge}>
+              <Ionicons name="notifications" size={36} color="#d32f2f" />
+              {notificationCount > 0 && (
+                <View style={styles.iconBadge}>
+                  <Text style={styles.iconBadgeText}>{notificationCount}</Text>
+                </View>
+              )}
+            </View>
+            <Text style={styles.iconLabel}>{t('notifications')}</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity style={styles.iconButton}>
-            <MaterialIcons name="people-outline" size={36} color="#f57c00" />
-            <Text style={styles.iconLabel}>Beneficiaries</Text>
+          <TouchableOpacity
+            style={styles.iconButton}
+            onPress={() => navigation.navigate('Donate History')}
+          >
+            <MaterialIcons name="history" size={36} color="#ff5722" />
+            <Text style={styles.iconLabel}>{t('donateHistory')}</Text>
           </TouchableOpacity>
         </View>
       </ScrollView>
@@ -121,7 +244,7 @@ export default function HomeScreen({ navigation }) {
       <View style={styles.footer}>
         <TouchableOpacity style={styles.footerItem}>
           <Ionicons name="home" size={24} color="#b71c1c" />
-          <Text style={styles.footerText}>Home</Text>
+          <Text style={styles.footerText}>{t('home')}</Text>
         </TouchableOpacity>
 
         <TouchableOpacity
@@ -129,7 +252,7 @@ export default function HomeScreen({ navigation }) {
           onPress={() => navigation.navigate('DonateBlood')}
         >
           <MaterialCommunityIcons name="blood-bag" size={24} color="#b71c1c" />
-          <Text style={styles.footerText}>Donate</Text>
+          <Text style={styles.footerText}>{t('donateBlood')}</Text>
         </TouchableOpacity>
 
         <TouchableOpacity
@@ -137,7 +260,7 @@ export default function HomeScreen({ navigation }) {
           onPress={() => navigation.navigate('RequestBlood')}
         >
           <MaterialCommunityIcons name="hand-heart" size={24} color="#b71c1c" />
-          <Text style={styles.footerText}>Request</Text>
+          <Text style={styles.footerText}>{t('requestBlood')}</Text>
         </TouchableOpacity>
       </View>
     </View>
@@ -246,5 +369,60 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#b71c1c',
     marginTop: 4,
+    textAlign: 'center',
+    fontFamily: 'Poppins_400Regular',
+    minHeight: 16,
+    lineHeight: 16,
+  },
+  notificationContainer: {
+    position: 'relative',
+  },
+  notificationBadge: {
+    position: 'absolute',
+    top: -5,
+    right: -5,
+    backgroundColor: '#ff4444',
+    borderRadius: 10,
+    minWidth: 20,
+    height: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  notificationBadgeText: {
+    color: '#fff',
+    fontSize: 12,
+    fontFamily: 'Poppins_600SemiBold',
+  },
+  slideContainer: {
+    width,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+  },
+  slideImage: {
+    width: width - 40,
+    height: 200,
+    borderRadius: 12,
+    resizeMode: 'cover',
+  },
+  iconWithBadge: {
+    position: 'relative',
+    alignItems: 'center',
+  },
+  iconBadge: {
+    position: 'absolute',
+    top: -5,
+    right: -5,
+    backgroundColor: '#ff4444',
+    borderRadius: 8,
+    minWidth: 16,
+    height: 16,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  iconBadgeText: {
+    color: '#fff',
+    fontSize: 10,
+    fontFamily: 'Poppins_600SemiBold',
   },
 });

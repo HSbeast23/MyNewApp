@@ -12,14 +12,13 @@ import {
 } from '@react-navigation/drawer';
 
 import { Ionicons, MaterialIcons, Feather, FontAwesome5 } from '@expo/vector-icons';
+import { useTranslation } from '../hooks/useTranslation';
 
 // ✅ Screens
 import HomeScreen from '../screens/HomeScreen';
 import DonateBloodScreen from '../screens/DonateBloodScreen';
 import RequestBloodScreen from '../screens/RequestBloodScreen';
 import FounderScreen from '../screens/FounderScreen';
-import AdvisorScreen from '../screens/AdvisorScreen';
-import USaversNearScreen from '../screens/USaversNearScreen';
 import MyProfileScreen from '../screens/MyProfileScreen';
 import ReferFriendScreen from '../screens/ReferFriendScreen';
 import DonateHistoryScreen from '../screens/DonateHistoryScreen';
@@ -57,8 +56,6 @@ export default function DrawerNavigator() {
       <Drawer.Screen name="DonateBlood" component={DonateBloodScreen} />
       <Drawer.Screen name="RequestBlood" component={RequestBloodScreen} />
       <Drawer.Screen name="Founder" component={FounderScreen} />
-      <Drawer.Screen name="Advisor" component={AdvisorScreen} />
-      <Drawer.Screen name="USavers Near" component={USaversNearScreen} />
       <Drawer.Screen name="My Profile" component={MyProfileScreen} />
       <Drawer.Screen name="Refer Friend" component={ReferFriendScreen} />
       <Drawer.Screen name="Donate History" component={DonateHistoryScreen} />
@@ -75,6 +72,7 @@ export default function DrawerNavigator() {
 }
 
 function CustomDrawerContent(props) {
+  const { t, currentLanguage } = useTranslation();
   return (
     <View style={{ flex: 1, backgroundColor: '#b71c1c' }}>
       {/* HEADER */}

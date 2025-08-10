@@ -119,6 +119,11 @@ class NotificationService {
     }
   }
 
+  // Alias for sendLocalNotification to match existing usage
+  async showLocalNotification(title, body, data = {}) {
+    return this.sendLocalNotification(title, body, data);
+  }
+
   // Blood donation specific notifications
   async notifyBloodRequestMatch(donorName, bloodGroup, location) {
     return this.sendLocalNotification(

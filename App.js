@@ -5,6 +5,7 @@ import { NavigationContainer } from '@react-navigation/native';
 import { useFonts, Poppins_400Regular, Poppins_500Medium, Poppins_700Bold } from '@expo-google-fonts/poppins';
 
 import AppNavigator from './src/navigation/AppNavigator';
+import { LanguageProvider } from './src/contexts/LanguageContext';
 
 SplashScreen.preventAutoHideAsync(); // Keep splash screen visible while loading
 
@@ -38,10 +39,12 @@ export default function App() {
   }
 
   return (
-    <View style={{ flex: 1 }} onLayout={onLayoutRootView}>
-      <NavigationContainer>
-        <AppNavigator />
-      </NavigationContainer>
-    </View>
+    <LanguageProvider>
+      <View style={{ flex: 1 }} onLayout={onLayoutRootView}>
+        <NavigationContainer>
+          <AppNavigator />
+        </NavigationContainer>
+      </View>
+    </LanguageProvider>
   );
 }

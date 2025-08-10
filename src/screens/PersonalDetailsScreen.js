@@ -17,6 +17,7 @@ import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { db, auth } from '../services/auth';
 import * as Notifications from 'expo-notifications';
 import { useFonts, Poppins_400Regular, Poppins_600SemiBold } from '@expo-google-fonts/poppins';
+import { useTranslation } from '../hooks/useTranslation';
 
 const bloodGroups = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'];
 
@@ -34,6 +35,7 @@ const tamilNaduCities = [
 ];
 
 export default function PersonalDetailsScreen() {
+  const { t, currentLanguage } = useTranslation();
   const navigation = useNavigation();
   const route = useRoute();
   const { fullName, email } = route.params || {};
@@ -139,82 +141,91 @@ export default function PersonalDetailsScreen() {
       keyboardVerticalOffset={Platform.OS === 'ios' ? 100 : 0}
     >
       <ScrollView contentContainerStyle={styles.scrollContainer} showsVerticalScrollIndicator={false}>
-        <Text style={styles.title}>Complete Your Profile</Text>
-        <Text style={styles.subtitle}>Help us serve you better with these details</Text>
+        <Text style={styles.title}>{t('personalDetails')}</Text>
+        <Text style={styles.subtitle}>{t('completeYourProfile')}</Text>
 
         <View style={styles.formContainer}>
-          <Text style={styles.label}>Full Name</Text>
+          <Text style={styles.label}>{t('enterFullName')}</Text>
           <TextInput
             style={styles.input}
             value={formData.name}
             onChangeText={(text) => setFormData({ ...formData, name: text })}
-            placeholder="Enter your full name"
+            placeholder={t('enterFullName')}
             placeholderTextColor="#888"
           />
 
-          <Text style={styles.label}>Age</Text>
+          <Text style={styles.label}>{t('enterAge')}</Text>
           <TextInput
             style={styles.input}
             value={formData.age}
             onChangeText={(text) => setFormData({ ...formData, age: text })}
-            placeholder="Enter your age"
+            placeholder={t('enterAge')}
             placeholderTextColor="#888"
             keyboardType="numeric"
             maxLength={2}
           />
 
-          <Text style={styles.label}>Phone Number</Text>
+          <Text style={styles.label}>{t('enterPhoneNumber')}</Text>
           <TextInput
             style={styles.input}
             value={formData.phone}
             onChangeText={(text) => setFormData({ ...formData, phone: text })}
-            placeholder="Enter your phone number"
+            placeholder={t('enterPhoneNumber')}
             placeholderTextColor="#888"
             keyboardType="phone-pad"
             maxLength={10}
           />
 
-          <Text style={styles.label}>Blood Group</Text>
+          <Text style={styles.label}>{t('selectBloodGroup')}</Text>
           <TouchableOpacity
             style={styles.pickerButton}
             onPress={() => setShowBloodGroupPicker(!showBloodGroupPicker)}
           >
             <Text style={[styles.pickerButtonText, !formData.bloodGroup && styles.placeholderText]}>
-              {formData.bloodGroup || 'Select your blood group'}
+              {formData.bloodGroup || t('selectBloodGroup')}
             </Text>
           </TouchableOpacity>
 
           {showBloodGroupPicker && (
             <View style={styles.pickerContainer}>
-              <Picker
-                selectedValue={formData.bloodGroup}
-                onValueChange={(itemValue) => {
-                  setFormData({ ...formData, bloodGroup: itemValue });
-                  setShowBloodGroupPicker(false);
-                }}
-                style={styles.picker}
+              <ScrollView 
+                style={styles.bloodGroupScrollView}
+                showsVerticalScrollIndicator={true}
+                nestedScrollEnabled={true}
               >
-                <Picker.Item label="Select blood group" value="" />
                 {bloodGroups.map((group) => (
-                  <Picker.Item key={group} label={group} value={group} />
+                  <TouchableOpacity
+                    key={group}
+                    style={styles.bloodGroupOption}
+                    onPress={() => {
+                      setFormData({ ...formData, bloodGroup: group });
+                      setShowBloodGroupPicker(false);
+                    }}
+                  >
+                    <Text style={styles.bloodGroupOptionText}>{group}</Text>
+                  </TouchableOpacity>
                 ))}
-              </Picker>
+              </ScrollView>
             </View>
           )}
 
-          <Text style={styles.label}>City</Text>
+          <Text style={styles.label}>{t('selectYourCity')}</Text>
           <TouchableOpacity
             style={styles.pickerButton}
             onPress={() => setShowCityPicker(!showCityPicker)}
           >
             <Text style={[styles.pickerButtonText, !formData.city && styles.placeholderText]}>
-              {formData.city || 'Select your city'}
+              {formData.city || t('selectYourCity')}
             </Text>
           </TouchableOpacity>
 
           {showCityPicker && (
             <View style={styles.pickerContainer}>
-              <ScrollView style={styles.cityScrollView}>
+              <ScrollView 
+                style={styles.cityScrollView}
+                showsVerticalScrollIndicator={true}
+                nestedScrollEnabled={true}
+              >
                 {tamilNaduCities.map((city) => (
                   <TouchableOpacity
                     key={city}
@@ -232,7 +243,7 @@ export default function PersonalDetailsScreen() {
           )}
 
           <TouchableOpacity style={styles.submitButton} onPress={handleSubmit}>
-            <Text style={styles.submitButtonText}>Complete Profile</Text>
+            <Text style={styles.submitButtonText}>{t('saveAndContinue')}</Text>
           </TouchableOpacity>
         </View>
       </ScrollView>
@@ -301,25 +312,49 @@ const styles = StyleSheet.create({
     color: '#888',
   },
   pickerContainer: {
-    backgroundColor: '#f9f9f9',
-    borderRadius: 10,
-    marginBottom: 10,
-    maxHeight: 200,
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    marginBottom: 16,
+    maxHeight: 250,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 3.84,
+    elevation: 5,
+    zIndex: 1000,
   },
-  picker: {
-    height: 150,
+  bloodGroupScrollView: {
+    maxHeight: 250,
+    paddingVertical: 5,
+  },
+  bloodGroupOption: {
+    paddingHorizontal: 15,
+    paddingVertical: 15,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f0f0f0',
+    backgroundColor: '#fff',
+  },
+  bloodGroupOptionText: {
+    fontSize: 16,
+    fontFamily: 'Poppins_400Regular',
+    color: '#333',
   },
   cityScrollView: {
-    maxHeight: 200,
+    maxHeight: 250,
+    paddingVertical: 5,
   },
   cityOption: {
     paddingHorizontal: 15,
-    paddingVertical: 12,
+    paddingVertical: 15,
     borderBottomWidth: 1,
-    borderBottomColor: '#eee',
+    borderBottomColor: '#f0f0f0',
+    backgroundColor: '#fff',
   },
   cityOptionText: {
-    fontSize: 15,
+    fontSize: 16,
     fontFamily: 'Poppins_400Regular',
     color: '#333',
   },

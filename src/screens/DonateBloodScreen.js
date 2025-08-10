@@ -5,10 +5,12 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Picker } from '@react-native-picker/picker';
-import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
+import { collection, addDoc, serverTimestamp, query, where, getDocs } from 'firebase/firestore';
 import { db, auth } from '../services/auth';
 import { useFonts, Poppins_400Regular, Poppins_600SemiBold, Poppins_700Bold } from '@expo-google-fonts/poppins';
 import * as Notifications from 'expo-notifications';
+import notificationService from '../services/notificationService';
+import { useTranslation } from '../hooks/useTranslation';
 
 const tamilNaduCities = [
   "Chennai", "Coimbatore", "Madurai", "Tiruchirappalli", "Salem",
@@ -31,6 +33,7 @@ const medicalConditionsList = [
 ];
 
 export default function DonateBloodScreen() {
+  const { t, currentLanguage } = useTranslation();
   let [fontsLoaded] = useFonts({
     Poppins_400Regular,
     Poppins_600SemiBold,
@@ -53,9 +56,19 @@ export default function DonateBloodScreen() {
 
   const handleConditionToggle = (condition) => {
     setForm((prev) => {
-      const conditions = prev.medicalConditions.includes(condition)
-        ? prev.medicalConditions.filter((c) => c !== condition)
-        : [...prev.medicalConditions, condition];
+      let conditions;
+      
+      if (condition === 'None') {
+        // If 'None' is selected, clear all other conditions
+        conditions = prev.medicalConditions.includes('None') ? [] : ['None'];
+      } else {
+        // If any other condition is selected, remove 'None' first
+        const filteredConditions = prev.medicalConditions.filter(c => c !== 'None');
+        conditions = filteredConditions.includes(condition)
+          ? filteredConditions.filter((c) => c !== condition)
+          : [...filteredConditions, condition];
+      }
+      
       return { ...prev, medicalConditions: conditions };
     });
   };
@@ -65,12 +78,13 @@ export default function DonateBloodScreen() {
     try {
       const { status } = await Notifications.requestPermissionsAsync();
       if (status !== 'granted') {
+        console.log('Push notification permission not granted');
         return null;
       }
 
-      const token = await Notifications.getExpoPushTokenAsync({
-        projectId: 'your-project-id', // Replace with your actual Expo project ID
-      });
+      // For Expo Go, we don't need to specify projectId
+      const token = await Notifications.getExpoPushTokenAsync();
+      console.log('Push token generated:', token.data);
       return token.data;
     } catch (error) {
       console.log('Error getting push token:', error);
@@ -101,21 +115,72 @@ export default function DonateBloodScreen() {
       return;
     }
 
+    // Medical condition validation - only allow donation if 'None' is selected
+    if (form.medicalConditions.length === 0) {
+      Alert.alert('Medical Condition Required', 'Please select your medical condition status. If you have no medical conditions, select "None".');
+      return;
+    }
+
+    // Check if any medical condition other than 'None' is selected
+    const hasOtherConditions = form.medicalConditions.some(condition => condition !== 'None');
+    if (hasOtherConditions) {
+      Alert.alert(
+        'Medical Condition Restriction', 
+        'Sorry, individuals with medical conditions cannot donate blood for safety reasons. Please consult with a healthcare professional.',
+        [{ text: 'OK', onPress: () => {} }]
+      );
+      return;
+    }
+
+    // If 'None' is selected along with other conditions, show error
+    if (form.medicalConditions.includes('None') && form.medicalConditions.length > 1) {
+      Alert.alert('Invalid Selection', 'Please select either "None" or specific medical conditions, not both.');
+      return;
+    }
+
     setLoading(true);
     try {
       const pushToken = await getPushToken();
       const user = auth.currentUser;
       
+      // Save donor data
       await addDoc(collection(db, 'BloodDonors'), {
-        ...form,
-        userId: user?.uid,
-        expoPushToken: pushToken,
-        timestamp: serverTimestamp(),
+        name: form.name,
+        mobile: form.mobile,
+        city: form.city,
+        gender: form.gender,
+        bloodGroup: form.bloodGroup,
+        age: form.age,
+        medicalConditions: form.medicalConditions,
+        pushToken: pushToken,
+        expoPushToken: pushToken, // Add this for compatibility
+        uid: user?.uid,
+        createdAt: serverTimestamp(),
+        isActive: true,
       });
+
+      // CRITICAL: Check for existing matching blood requests
+      const matchingRequestsQuery = query(
+        collection(db, 'Bloodreceiver'),
+        where('bloodGroup', '==', form.bloodGroup),
+        where('city', '==', form.city),
+        where('status', '==', 'pending')
+      );
+      
+      const matchingRequestsSnapshot = await getDocs(matchingRequestsQuery);
+      const matchCount = matchingRequestsSnapshot.size;
+      
+      let successMessage = 'Thank you for registering as a blood donor!';
+      
+      if (matchCount > 0) {
+        successMessage += ` Great news! There ${matchCount === 1 ? 'is' : 'are'} ${matchCount} matching blood request${matchCount === 1 ? '' : 's'} in your area. Check your Notifications to help save ${matchCount === 1 ? 'a life' : 'lives'}!`;
+      } else {
+        successMessage += ' You will receive notifications when someone needs your blood type in your city.';
+      }
       
       Alert.alert(
         'Success', 
-        'Thank you for registering as a blood donor! You will receive notifications when someone needs your blood type in your city.',
+        successMessage,
         [
           {
             text: 'OK',
@@ -151,8 +216,8 @@ if (!fontsLoaded) {
     <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
       <View style={styles.header}>
         <Ionicons name="water" size={40} color="#b71c1c" />
-        <Text style={styles.title}>Blood Donor Registration</Text>
-        <Text style={styles.subtitle}>Help save lives by becoming a blood donor</Text>
+        <Text style={styles.title}>{t('bloodDonationForm')}</Text>
+        <Text style={styles.subtitle}>{t('registerAsDonor')}</Text>
       </View>
 
       <View style={styles.formContainer}>
@@ -162,7 +227,7 @@ if (!fontsLoaded) {
             style={styles.input}
             value={form.name}
             onChangeText={(text) => setForm({ ...form, name: text })}
-            placeholder="Enter full name"
+            placeholder={t('enterFullName')}
             placeholderTextColor="#888"
           />
         </View>
@@ -174,7 +239,7 @@ if (!fontsLoaded) {
             keyboardType="numeric"
             value={form.mobile}
             onChangeText={(text) => setForm({ ...form, mobile: text })}
-            placeholder="Enter mobile number"
+            placeholder={t('enterMobileNumber')}
             placeholderTextColor="#888"
             maxLength={10}
           />
@@ -193,7 +258,11 @@ if (!fontsLoaded) {
 
         {showCityPicker && (
           <View style={styles.pickerContainer}>
-            <ScrollView style={styles.cityScrollView}>
+            <ScrollView 
+              style={styles.cityScrollView}
+              showsVerticalScrollIndicator={true}
+              nestedScrollEnabled={true}
+            >
               {tamilNaduCities.map((city) => (
                 <TouchableOpacity
                   key={city}
@@ -384,7 +453,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
     borderRadius: 12,
     marginBottom: 16,
-    maxHeight: 200,
+    maxHeight: 250,
     shadowColor: '#000',
     shadowOffset: {
       width: 0,
@@ -393,17 +462,32 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 3.84,
     elevation: 5,
+    zIndex: 1000,
   },
   cityScrollView: {
-    maxHeight: 200,
+    maxHeight: 250,
+    paddingVertical: 5,
   },
   cityOption: {
     paddingHorizontal: 15,
-    paddingVertical: 12,
+    paddingVertical: 15,
     borderBottomWidth: 1,
     borderBottomColor: '#f0f0f0',
+    backgroundColor: '#fff',
   },
   cityOptionText: {
+    fontSize: 16,
+    fontFamily: 'Poppins_400Regular',
+    color: '#333',
+  },
+  bloodGroupOption: {
+    paddingHorizontal: 15,
+    paddingVertical: 15,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f0f0f0',
+    backgroundColor: '#fff',
+  },
+  bloodGroupOptionText: {
     fontSize: 16,
     fontFamily: 'Poppins_400Regular',
     color: '#333',

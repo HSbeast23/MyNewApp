@@ -10,10 +10,19 @@ import { db, auth } from '../services/auth';
 import { Poppins_400Regular, Poppins_600SemiBold, Poppins_700Bold } from '@expo-google-fonts/poppins';
 import { useFonts } from 'expo-font';
 import * as Notifications from 'expo-notifications';
+import { useTranslation } from '../hooks/useTranslation';
 
 const tamilNaduCities = [
-  "Chennai", "Coimbatore", "Madurai", "Tiruchirappalli", "Salem",
-  // ... (all Tamil Nadu cities you had)
+"Chennai", "Coimbatore", "Madurai", "Tiruchirappalli", "Salem",
+  "Tirunelveli", "Erode", "Vellore", "Thoothukudi", "Dindigul",
+  "Thanjavur", "Ranipet", "Sivakasi", "Karur", "Udhagamandalam",
+  "Hosur", "Nagercoil", "Kanchipuram", "Kumarakonam", "Pudukkottai",
+  "Ambur", "Palani", "Pollachi", "Rajapalayam", "Gudiyatham",
+  "Vaniyambadi", "Gobichettipalayam", "Neyveli", "Pallavaram",
+  "Valparai", "Sankarankovil", "Tenkasi", "Palayamkottai", "Mayiladuthurai",
+  "Vikramasingapuram", "Arakkonam", "Sirkali", "Chidambaram", "Panruti",
+  "Lalgudi", "Adyar", "Tiruvannamalai", "Nagapattinam", "Nandivaram-Guduvancheri",
+  "Tiruppur", "Avadi", "Tambaram", "Ambattur"
 ];
 
 const bloodGroups = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'];
@@ -42,6 +51,7 @@ const medicalConditionsList = [
 ];
 
 export default function RequestBloodScreen() {
+  const { t, currentLanguage } = useTranslation();
   let [fontsLoaded] = useFonts({
     Poppins_400Regular,
     Poppins_600SemiBold,
@@ -80,12 +90,13 @@ export default function RequestBloodScreen() {
     try {
       const { status } = await Notifications.requestPermissionsAsync();
       if (status !== 'granted') {
+        console.log('Push notification permission not granted');
         return null;
       }
 
-      const token = await Notifications.getExpoPushTokenAsync({
-        projectId: 'your-project-id', // Replace with your actual Expo project ID
-      });
+      // For Expo Go, we don't need to specify projectId
+      const token = await Notifications.getExpoPushTokenAsync();
+      console.log('Push token generated:', token.data);
       return token.data;
     } catch (error) {
       console.log('Error getting push token:', error);
@@ -104,7 +115,7 @@ export default function RequestBloodScreen() {
       );
 
       const donorsSnapshot = await getDocs(donorsQuery);
-      
+
       const notifications = [];
       donorsSnapshot.forEach((doc) => {
         const donor = doc.data();
@@ -163,24 +174,33 @@ export default function RequestBloodScreen() {
     try {
       const pushToken = await getPushToken();
       const user = auth.currentUser;
-      
+
       const requestData = {
-        ...form,
-        userId: user?.uid,
-        requesterId: user?.uid,
-        expoPushToken: pushToken,
-        timestamp: serverTimestamp(),
+        name: form.name,
+        mobile: form.mobile,
+        city: form.city,
+        gender: form.gender,
+        bloodGroup: form.bloodGroup,
+        bloodUnits: form.units.toString(),
+        purpose: form.purpose,
+        conditions: form.medicalConditions,
+        requiredDateTime: formatDateTime(form.requiredDateTime),
+        pushToken: pushToken,
+        uid: user?.uid,
+        createdAt: serverTimestamp(),
         status: 'pending',
-        requiredDateTime: form.requiredDateTime.toISOString(),
+        responses: [],
+        seenBy: [],
+        respondedBy: null,
       };
 
       const docRef = await addDoc(collection(db, 'Bloodreceiver'), requestData);
-      
+
       // Send notifications to matching donors
       await notifyMatchingDonors({ ...requestData, id: docRef.id });
-      
+
       Alert.alert(
-        'Success', 
+        'Success',
         'Your blood request has been submitted! Matching donors will be notified.',
         [
           {
@@ -208,15 +228,15 @@ export default function RequestBloodScreen() {
     }
   };
 
-if (!fontsLoaded) {
-  return (
-    <View style={{ flex:1, justifyContent:'center', alignItems:'center' }}>
-      <ActivityIndicator size="large" color="#b71c1c" />
-    </View>
-  );
-}
+  if (!fontsLoaded) {
+    return (
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+        <ActivityIndicator size="large" color="#b71c1c" />
+      </View>
+    );
+  }
   const formatDateTime = (date) => {
-    return date.toLocaleDateString() + ' ' + date.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+    return date.toLocaleDateString() + ' ' + date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   };
 
   const onDateChange = (event, selectedDate) => {
@@ -235,8 +255,8 @@ if (!fontsLoaded) {
     <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
       <View style={styles.header}>
         <Ionicons name="medical" size={40} color="#b71c1c" />
-        <Text style={styles.title}>Blood Request Form</Text>
-        <Text style={styles.subtitle}>Request blood for medical emergency</Text>
+        <Text style={styles.title}>{t('bloodRequestForm')}</Text>
+        <Text style={styles.subtitle}>{t('requestBloodForEmergency')}</Text>
       </View>
 
       <View style={styles.formContainer}>
@@ -246,7 +266,7 @@ if (!fontsLoaded) {
             style={styles.input}
             value={form.name}
             onChangeText={(text) => setForm({ ...form, name: text })}
-            placeholder="Enter full name"
+            placeholder={t('enterFullName')}
             placeholderTextColor="#888"
           />
         </View>
@@ -258,7 +278,7 @@ if (!fontsLoaded) {
             keyboardType="numeric"
             value={form.mobile}
             onChangeText={(text) => setForm({ ...form, mobile: text })}
-            placeholder="Enter mobile number"
+            placeholder={t('enterMobileNumber')}
             placeholderTextColor="#888"
             maxLength={10}
           />
@@ -270,14 +290,18 @@ if (!fontsLoaded) {
         >
           <Ionicons name="location-outline" size={20} color="#666" style={styles.inputIcon} />
           <Text style={[styles.pickerButtonText, !form.city && styles.placeholderText]}>
-            {form.city || 'Select your city'}
+            {form.city || t('selectYourCity')}
           </Text>
           <Ionicons name="chevron-down-outline" size={20} color="#666" />
         </TouchableOpacity>
 
         {showCityPicker && (
           <View style={styles.pickerContainer}>
-            <ScrollView style={styles.cityScrollView}>
+            <ScrollView 
+              style={styles.cityScrollView}
+              showsVerticalScrollIndicator={true}
+              nestedScrollEnabled={true}
+            >
               {tamilNaduCities.map((city) => (
                 <TouchableOpacity
                   key={city}
@@ -294,16 +318,16 @@ if (!fontsLoaded) {
           </View>
         )}
 
-        <Text style={styles.sectionTitle}>Gender</Text>
+        <Text style={styles.sectionTitle}>{t('selectGender')}</Text>
         <View style={styles.optionsRow}>
-          {['Male', 'Female', 'Other'].map((gender) => (
+          {[t('male'), t('female'), t('other')].map((gender, index) => (
             <TouchableOpacity
               key={gender}
               style={[
                 styles.optionButton,
                 form.gender === gender && styles.optionButtonSelected,
               ]}
-              onPress={() => setForm({ ...form, gender })}
+              onPress={() => setForm({ ...form, gender: ['Male', 'Female', 'Other'][index] })}
             >
               <Text style={[
                 styles.optionText,
@@ -313,7 +337,7 @@ if (!fontsLoaded) {
           ))}
         </View>
 
-        <Text style={styles.sectionTitle}>Blood Group</Text>
+        <Text style={styles.sectionTitle}>{t('selectBloodGroup')}</Text>
         <View style={styles.bloodGroupGrid}>
           {bloodGroups.map((bg) => (
             <TouchableOpacity
@@ -332,7 +356,7 @@ if (!fontsLoaded) {
           ))}
         </View>
 
-        <Text style={styles.sectionTitle}>Units Needed</Text>
+        <Text style={styles.sectionTitle}>{t('bloodUnitsNeeded')}</Text>
         <View style={styles.unitsRow}>
           {[1, 2, 3, 4, 5].map((unit) => (
             <TouchableOpacity
@@ -364,17 +388,21 @@ if (!fontsLoaded) {
 
         {showPurposePicker && (
           <View style={styles.pickerContainer}>
-            <ScrollView style={styles.cityScrollView}>
+            <ScrollView 
+              style={styles.cityScrollView}
+              showsVerticalScrollIndicator={true}
+              nestedScrollEnabled={true}
+            >
               {purposes.map((purpose) => (
                 <TouchableOpacity
                   key={purpose}
-                  style={styles.cityOption}
+                  style={styles.purposeOption}
                   onPress={() => {
                     setForm({ ...form, purpose });
                     setShowPurposePicker(false);
                   }}
                 >
-                  <Text style={styles.cityOptionText}>{purpose}</Text>
+                  <Text style={styles.purposeOptionText}>{purpose}</Text>
                 </TouchableOpacity>
               ))}
             </ScrollView>
@@ -410,7 +438,7 @@ if (!fontsLoaded) {
             <Ionicons name="calendar-outline" size={20} color="#666" style={styles.inputIcon} />
             <Text style={styles.dateTimeText}>{formatDateTime(form.requiredDateTime)}</Text>
           </TouchableOpacity>
-          
+
           <TouchableOpacity
             style={styles.dateTimeButton}
             onPress={() => setShowTimePicker(true)}
@@ -443,8 +471,8 @@ if (!fontsLoaded) {
           />
         )}
 
-        <TouchableOpacity 
-          style={[styles.submitBtn, loading && styles.submitBtnDisabled]} 
+        <TouchableOpacity
+          style={[styles.submitBtn, loading && styles.submitBtnDisabled]}
           onPress={handleSubmit}
           disabled={loading}
         >
@@ -463,18 +491,18 @@ if (!fontsLoaded) {
 }
 
 const styles = StyleSheet.create({
-  container: { 
-    flex: 1, 
-    backgroundColor: '#f8f9fa' 
+  container: {
+    flex: 1,
+    backgroundColor: '#f8f9fa'
   },
   header: {
     alignItems: 'center',
     paddingVertical: 30,
     paddingHorizontal: 20,
   },
-  title: { 
-    fontFamily: 'Poppins_700Bold', 
-    fontSize: 26, 
+  title: {
+    fontFamily: 'Poppins_700Bold',
+    fontSize: 26,
     marginTop: 15,
     marginBottom: 8,
     color: '#333',
@@ -546,7 +574,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
     borderRadius: 12,
     marginBottom: 16,
-    maxHeight: 200,
+    maxHeight: 250,
     shadowColor: '#000',
     shadowOffset: {
       width: 0,
@@ -555,17 +583,32 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 3.84,
     elevation: 5,
+    zIndex: 1000,
   },
   cityScrollView: {
-    maxHeight: 200,
+    maxHeight: 250,
+    paddingVertical: 5,
   },
   cityOption: {
     paddingHorizontal: 15,
-    paddingVertical: 12,
+    paddingVertical: 15,
     borderBottomWidth: 1,
     borderBottomColor: '#f0f0f0',
+    backgroundColor: '#fff',
   },
   cityOptionText: {
+    fontSize: 16,
+    fontFamily: 'Poppins_400Regular',
+    color: '#333',
+  },
+  purposeOption: {
+    paddingHorizontal: 15,
+    paddingVertical: 15,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f0f0f0',
+    backgroundColor: '#fff',
+  },
+  purposeOptionText: {
     fontSize: 16,
     fontFamily: 'Poppins_400Regular',
     color: '#333',
