@@ -16,6 +16,7 @@ import {
   doc,
   serverTimestamp,
   getDoc,
+  getDocs,
 } from 'firebase/firestore';
 import { db, auth } from '../services/auth';
 import notificationService from '../services/notificationService';
@@ -24,12 +25,12 @@ import {
   Poppins_400Regular,
   Poppins_600SemiBold,
 } from '@expo-google-fonts/poppins';
-import AppLoading from 'expo-app-loading';
 
 export default function NotificationScreen() {
   const [userRole, setUserRole] = useState(null); // 'donor' or 'receiver'
   const [userCity, setUserCity] = useState('');
   const [userBloodGroup, setUserBloodGroup] = useState('');
+  const [userProfile, setUserProfile] = useState(null);
   const [requests, setRequests] = useState([]); // For donor: matched requests
   const [responses, setResponses] = useState([]); // For receiver: donor responses
 
@@ -39,18 +40,54 @@ export default function NotificationScreen() {
     Poppins_600SemiBold,
   });
 
-  // Fetch user details from auth or your user profile Firestore (replace with your own logic)
+  // Fetch user details from Firestore user profile
   useEffect(() => {
     const fetchUserDetails = async () => {
       const user = auth.currentUser;
       if (!user) return;
 
-      // TODO: Replace this hardcoded with your Firestore user profile fetch
-      // Example: Fetch user doc from 'users' collection to get role, city, bloodGroup
-      // For demo, hardcoded values:
-      setUserRole('donor'); // or 'receiver'
-      setUserCity('Chennai');
-      setUserBloodGroup('A+');
+      try {
+        // Fetch user profile from users collection
+        const userQuery = query(
+          collection(db, 'users'),
+          where('userId', '==', user.uid)
+        );
+        const userSnapshot = await getDocs(userQuery);
+        
+        if (!userSnapshot.empty) {
+          const userData = userSnapshot.docs[0].data();
+          setUserProfile(userData);
+          setUserCity(userData.city);
+          setUserBloodGroup(userData.bloodGroup);
+        }
+
+        // Check if user has any blood requests (receiver) or donations (donor)
+        const requestsQuery = query(
+          collection(db, 'Bloodreceiver'),
+          where('userId', '==', user.uid)
+        );
+        const requestsSnapshot = await getDocs(requestsQuery);
+        
+        const donationsQuery = query(
+          collection(db, 'BloodDonors'),
+          where('userId', '==', user.uid)
+        );
+        const donationsSnapshot = await getDocs(donationsQuery);
+
+        // Determine role based on recent activity or default to donor
+        if (!requestsSnapshot.empty) {
+          setUserRole('receiver');
+        } else if (!donationsSnapshot.empty) {
+          setUserRole('donor');
+        } else {
+          setUserRole('donor'); // Default to donor view
+        }
+      } catch (error) {
+        console.log('Error fetching user details:', error);
+        setUserRole('donor');
+        setUserCity('Chennai');
+        setUserBloodGroup('A+');
+      }
     };
     fetchUserDetails();
   }, []);
@@ -130,58 +167,110 @@ export default function NotificationScreen() {
 
   // Donor Accept handler
   const handleAccept = async (requestId) => {
-    try {
-      await updateDoc(doc(db, 'Bloodreceiver', requestId), {
-        donorResponse: 'Accepted',
-        donorId: auth.currentUser.uid,
-        responseTimestamp: serverTimestamp(),
-      });
+    Alert.alert(
+      'Confirm Donation',
+      'Are you sure you want to accept this blood donation request? The receiver will be notified and may contact you.',
+      [
+        {
+          text: 'Cancel',
+          style: 'cancel',
+        },
+        {
+          text: 'Accept',
+          onPress: async () => {
+            try {
+              const requestRef = doc(db, 'Bloodreceiver', requestId);
+              const donorName = userProfile?.name || 'A donor';
+              
+              await updateDoc(requestRef, {
+                donorResponse: 'accepted',
+                donorId: auth.currentUser.uid,
+                donorName: donorName,
+                responseTimestamp: serverTimestamp(),
+              });
 
-      // Fetch request document to get receiver's Expo push token
-      const requestDoc = await getDoc(doc(db, 'Bloodreceiver', requestId));
-      const requestData = requestDoc.data();
+              // Get the request data to send notification to receiver
+              const requestDoc = await getDoc(requestRef);
+              const requestData = requestDoc.data();
 
-      if (requestData?.expoPushToken) {
-        await sendPushNotification(
-          requestData.expoPushToken,
-          'Your blood request has been Accepted by a donor!'
-        );
-      }
+              if (requestData.expoPushToken) {
+                await sendPushNotification(
+                  requestData.expoPushToken,
+                  ` Great news! ${donorName} has accepted your ${requestData.bloodGroup} blood request. They will contact you soon.`
+                );
+              }
 
-      Alert.alert('Accepted', 'You accepted the blood request.');
-    } catch (error) {
-      Alert.alert('Error', error.message);
-    }
+              Alert.alert('Success', 'You have accepted the blood request. The receiver will be notified and may contact you.');
+              
+              // Remove this request from the local state to update UI
+              setRequests(prev => prev.filter(req => req.id !== requestId));
+            } catch (error) {
+              console.log(error);
+              Alert.alert('Error', 'Failed to accept request');
+            }
+          }
+        }
+      ]
+    );
   };
 
   // Donor Decline handler
   const handleDecline = async (requestId) => {
-    try {
-      await updateDoc(doc(db, 'Bloodreceiver', requestId), {
-        donorResponse: 'Declined',
-        donorId: auth.currentUser.uid,
-        responseTimestamp: serverTimestamp(),
-      });
+    Alert.alert(
+      'Decline Request',
+      'Are you sure you want to decline this blood donation request?',
+      [
+        {
+          text: 'Cancel',
+          style: 'cancel',
+        },
+        {
+          text: 'Decline',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              const requestRef = doc(db, 'Bloodreceiver', requestId);
+              const donorName = userProfile?.name || 'A donor';
+              
+              await updateDoc(requestRef, {
+                donorResponse: 'declined',
+                donorId: auth.currentUser.uid,
+                donorName: donorName,
+                responseTimestamp: serverTimestamp(),
+              });
 
-      // Fetch request document to get receiver's Expo push token
-      const requestDoc = await getDoc(doc(db, 'Bloodreceiver', requestId));
-      const requestData = requestDoc.data();
+              // Get the request data to send notification to receiver
+              const requestDoc = await getDoc(requestRef);
+              const requestData = requestDoc.data();
 
-      if (requestData?.expoPushToken) {
-        await sendPushNotification(
-          requestData.expoPushToken,
-          'Your blood request has been Declined by a donor.'
-        );
-      }
+              if (requestData.expoPushToken) {
+                await sendPushNotification(
+                  requestData.expoPushToken,
+                  `${donorName} was unable to fulfill your ${requestData.bloodGroup} blood request. We'll continue searching for other donors.`
+                );
+              }
 
-      Alert.alert('Declined', 'You declined the blood request.');
-    } catch (error) {
-      Alert.alert('Error', error.message);
-    }
+              Alert.alert('Response Sent', 'You have declined the blood request. The receiver will be notified.');
+              
+              // Remove this request from the local state to update UI
+              setRequests(prev => prev.filter(req => req.id !== requestId));
+            } catch (error) {
+              console.log(error);
+              Alert.alert('Error', 'Failed to decline request');
+            }
+          }
+        }
+      ]
+    );
   };
 
-  if (!fontsLoaded) return <AppLoading />;
-
+if (!fontsLoaded) {
+  return (
+    <View style={{ flex:1, justifyContent:'center', alignItems:'center' }}>
+      <ActivityIndicator size="large" color="#b71c1c" />
+    </View>
+  );
+}
   // UI for donor: list matched blood requests with accept/decline
   if (userRole === 'donor') {
     return (

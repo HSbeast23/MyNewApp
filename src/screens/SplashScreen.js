@@ -2,23 +2,40 @@ import React, { useEffect } from 'react';
 import { View, StyleSheet } from 'react-native';
 import LottieView from 'lottie-react-native';
 
-// ✅ Import Firebase Auth
-import { auth } from '../services/auth'; // adjust your path
+import { auth, db } from '../services/auth'; // Make sure db is Firestore instance
 import { onAuthStateChanged } from 'firebase/auth';
+import { doc, getDoc } from 'firebase/firestore';
 
 export default function SplashScreen({ navigation }) {
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
-      // ✅ Wait 3 seconds before navigating
-      setTimeout(() => {
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+      setTimeout(async () => {
         if (user) {
           console.log('✅ User logged in:', user.email);
-          navigation.replace('MainDrawer');
+
+          try {
+            const userDocRef = doc(db, 'users', user.uid);
+            const userDocSnap = await getDoc(userDocRef);
+
+            if (userDocSnap.exists()) {
+              const data = userDocSnap.data();
+              if (data.profileComplete) {
+                navigation.replace('MainDrawer'); // Profile done → Home
+              } else {
+                navigation.replace('PersonalDetails'); // Profile incomplete → PersonalDetails form
+              }
+            } else {
+              navigation.replace('PersonalDetails'); // No doc → PersonalDetails
+            }
+          } catch (error) {
+            console.log('Firestore fetch error:', error);
+            navigation.replace('PersonalDetails');
+          }
         } else {
           console.log('🔒 No user logged in, go to Login.');
           navigation.replace('Login');
         }
-      }, 3000); // 3000ms = 3 seconds
+      }, 3000);
     });
 
     return unsubscribe;
@@ -39,7 +56,7 @@ export default function SplashScreen({ navigation }) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fff', // your theme color
+    backgroundColor: '#fff',
     alignItems: 'center',
     justifyContent: 'center',
   },

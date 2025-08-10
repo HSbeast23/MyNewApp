@@ -11,14 +11,25 @@ import {
   Image,
   KeyboardAvoidingView,
   Platform,
+  ActivityIndicator,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import { useFonts, Poppins_400Regular, Poppins_600SemiBold, Poppins_700Bold } from '@expo-google-fonts/poppins';
 
-import { auth } from '../services/auth'; // ✅ Make sure the path matches your project structure
+import { auth } from '../services/auth';
 import { signInWithEmailAndPassword } from 'firebase/auth';
 
 export default function LoginScreen({ navigation }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [loading, setLoading] = useState(false);
+
+  let [fontsLoaded] = useFonts({
+    Poppins_400Regular,
+    Poppins_600SemiBold,
+    Poppins_700Bold,
+  });
 
   const handleLogin = async () => {
     if (!email || !password) {
@@ -26,15 +37,26 @@ export default function LoginScreen({ navigation }) {
       return;
     }
 
+    setLoading(true);
     try {
       await signInWithEmailAndPassword(auth, email, password);
       console.log('Login successful!');
-      navigation.replace('MainDrawer'); // ✅ Replace with your actual Home screen name
+      navigation.replace('MainDrawer');
     } catch (error) {
       console.log(error);
       Alert.alert('Login Failed', error.message);
+    } finally {
+      setLoading(false);
     }
   };
+
+  if (!fontsLoaded) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color="#b71c1c" />
+      </View>
+    );
+  }
 
   return (
     <KeyboardAvoidingView
@@ -50,26 +72,51 @@ export default function LoginScreen({ navigation }) {
         Login to <Text style={{ color: '#b71c1c' }}>BloodLink</Text>
       </Text>
 
-      <TextInput
-        placeholder="Email"
-        placeholderTextColor="#888"
-        value={email}
-        onChangeText={setEmail}
-        style={styles.input}
-        autoCapitalize="none"
-      />
+      <View style={styles.inputContainer}>
+        <Ionicons name="mail-outline" size={20} color="#666" style={styles.inputIcon} />
+        <TextInput
+          placeholder="Email"
+          placeholderTextColor="#888"
+          value={email}
+          onChangeText={setEmail}
+          style={styles.input}
+          autoCapitalize="none"
+          keyboardType="email-address"
+        />
+      </View>
 
-      <TextInput
-        placeholder="Password"
-        placeholderTextColor="#888"
-        value={password}
-        onChangeText={setPassword}
-        style={styles.input}
-        secureTextEntry
-      />
+      <View style={styles.inputContainer}>
+        <Ionicons name="lock-closed-outline" size={20} color="#666" style={styles.inputIcon} />
+        <TextInput
+          placeholder="Password"
+          placeholderTextColor="#888"
+          value={password}
+          onChangeText={setPassword}
+          style={styles.input}
+          secureTextEntry={!showPassword}
+        />
+        <TouchableOpacity
+          onPress={() => setShowPassword(!showPassword)}
+          style={styles.eyeIcon}
+        >
+          <Ionicons
+            name={showPassword ? "eye-outline" : "eye-off-outline"}
+            size={20}
+            color="#666"
+          />
+        </TouchableOpacity>
+      </View>
 
-      <TouchableOpacity style={styles.button} onPress={handleLogin}>
-        <Text style={styles.buttonText}>Login</Text>
+      <TouchableOpacity
+        style={[styles.button, loading && styles.buttonDisabled]}
+        onPress={handleLogin}
+        disabled={loading}
+      >
+        {loading ? (
+          <ActivityIndicator color="#fff" size="small" />
+        ) : (
+          <Text style={styles.buttonText}>Login</Text>
+        )}
       </TouchableOpacity>
 
       <TouchableOpacity onPress={() => navigation.navigate('SignUp')}>
@@ -83,44 +130,83 @@ export default function LoginScreen({ navigation }) {
 }
 
 const styles = StyleSheet.create({
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#f8f9fa',
+  },
   container: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: '#f8f9fa',
     paddingHorizontal: 25,
     justifyContent: 'center',
     alignItems: 'center',
   },
   logo: {
-    width: 110,
-    height: 110,
-    marginBottom: 25,
+    width: 120,
+    height: 120,
+    marginBottom: 30,
     resizeMode: 'contain',
   },
   title: {
-    fontSize: 24,
+    fontSize: 28,
     fontFamily: 'Poppins_700Bold',
-    marginBottom: 30,
+    marginBottom: 40,
     textAlign: 'center',
     color: '#333',
   },
-  input: {
+  inputContainer: {
     width: '100%',
-    backgroundColor: '#f3f3f3',
-    borderRadius: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#fff',
+    borderRadius: 12,
     paddingHorizontal: 15,
-    paddingVertical: 14,
-    marginBottom: 15,
-    fontSize: 15,
+    paddingVertical: 16,
+    marginBottom: 16,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 3.84,
+    elevation: 5,
+  },
+  inputIcon: {
+    marginRight: 12,
+  },
+  input: {
+    flex: 1,
+    fontSize: 16,
     fontFamily: 'Poppins_400Regular',
     color: '#333',
   },
+  eyeIcon: {
+    padding: 5,
+  },
   button: {
     backgroundColor: '#b71c1c',
-    paddingVertical: 15,
+    paddingVertical: 16,
     width: '100%',
-    borderRadius: 10,
+    borderRadius: 12,
     alignItems: 'center',
-    marginBottom: 15,
+    marginBottom: 20,
+    marginTop: 10,
+    shadowColor: '#b71c1c',
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
+    shadowOpacity: 0.3,
+    shadowRadius: 4.65,
+    elevation: 8,
+  },
+  buttonDisabled: {
+    backgroundColor: '#ccc',
+    shadowOpacity: 0,
+    elevation: 0,
   },
   buttonText: {
     color: '#fff',
@@ -129,11 +215,12 @@ const styles = StyleSheet.create({
   },
   linkText: {
     fontFamily: 'Poppins_400Regular',
-    fontSize: 13,
-    color: '#333',
+    fontSize: 14,
+    color: '#666',
+    textAlign: 'center',
   },
   linkHighlight: {
-    color: '#1976D2',
+    color: '#b71c1c',
     fontFamily: 'Poppins_600SemiBold',
   },
 });

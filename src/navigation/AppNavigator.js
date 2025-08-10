@@ -7,6 +7,7 @@ import SplashScreen from '../screens/SplashScreen';
 // import WelcomeScreen from '../screens/WelcomeScreen';
 import SignUpScreen from '../screens/SignUpScreen';
 import LoginScreen from '../screens/LoginScreen';
+import PersonalDetailsScreen from '../screens/PersonalDetailsScreen';
 
 // ✅ Use your DrawerNavigator instead of placing HomeScreen directly!
 import DrawerNavigator from './DrawerNavigator';
@@ -23,6 +24,7 @@ export default function AppNavigator() {
       {/* <Stack.Screen name="Welcome" component={WelcomeScreen} /> */}
       <Stack.Screen name="SignUp" component={SignUpScreen} />
       <Stack.Screen name="Login" component={LoginScreen} />
+      <Stack.Screen name="PersonalDetails" component={PersonalDetailsScreen} />
 
       {/* ✅ This loads ALL your main screens INSIDE the drawer */}
       <Stack.Screen name="MainDrawer" component={DrawerNavigator} />
