@@ -1,172 +1,238 @@
+// RequestBloodScreen.js
 import React, { useState } from 'react';
 import {
-  View,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  StyleSheet,
-  Alert,
-  ScrollView,
-  ActivityIndicator, // ✅ Added fallback loader
+  View, Text, TextInput, TouchableOpacity, ScrollView, StyleSheet,
 } from 'react-native';
-import Slider from '@react-native-community/slider';
-import * as Location from 'expo-location';
-import { Picker } from '@react-native-picker/picker';
+import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
+import { db } from '../services/auth'; // your firebase config export
+import { Poppins_400Regular, Poppins_600SemiBold } from '@expo-google-fonts/poppins';
+import AppLoading from 'expo-app-loading';
+import { useFonts } from 'expo-font';
 
-// Google Fonts
-import {
-  useFonts,
-  Poppins_400Regular,
-  Poppins_700Bold,
-} from '@expo-google-fonts/poppins';
+const tamilNaduCities = [
+  "Chennai", "Coimbatore", "Madurai", "Tiruchirappalli", "Salem",
+  // ... (all Tamil Nadu cities you had)
+];
 
-export default function RequestBloodScreen({ navigation }) {
-  const [bloodGroup, setBloodGroup] = useState('');
-  const [unitsNeeded, setUnitsNeeded] = useState(1);
-  const [location, setLocation] = useState(null);
-  const [contactNumber, setContactNumber] = useState('');
-  const [priority, setPriority] = useState('Normal');
-  const [requestStatus, setRequestStatus] = useState('Pending');
+const bloodGroups = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'];
 
-  const bloodGroups = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'];
+const purposes = [
+  'Surgery',
+  'Accident',
+  'Chronic Illness',
+  'Child Birth',
+  'Cancer Treatment',
+  'Blood Disorder',
+  'Other Medical Emergency',
+];
 
+const medicalConditionsList = [
+  'Diabetes',
+  'Hypertension',
+  'Heart Disease',
+  'Cancer',
+  'Thalassemia',
+  'HIV',
+  'Malaria',
+  'Tuberculosis',
+  'Asthma',
+  'None',
+];
+
+export default function RequestBloodScreen() {
   let [fontsLoaded] = useFonts({
     Poppins_400Regular,
-    Poppins_700Bold,
+    Poppins_600SemiBold,
   });
 
+  const [form, setForm] = useState({
+    name: '',
+    mobile: '',
+    city: '',
+    gender: '',
+    bloodGroup: '',
+    units: 1,
+    purpose: '',
+    medicalConditions: [],
+    requiredDateTime: '',
+  });
+
+  const handleConditionToggle = (condition) => {
+    setForm((prev) => {
+      const conditions = prev.medicalConditions.includes(condition)
+        ? prev.medicalConditions.filter((c) => c !== condition)
+        : [...prev.medicalConditions, condition];
+      return { ...prev, medicalConditions: conditions };
+    });
+  };
+
+  const handleSubmit = async () => {
+    if (
+      !form.name ||
+      !form.mobile ||
+      !form.city ||
+      !form.gender ||
+      !form.bloodGroup ||
+      !form.purpose ||
+      !form.requiredDateTime
+    ) {
+      alert('Please fill all mandatory fields');
+      return;
+    }
+    try {
+      await addDoc(collection(db, 'Bloodreceiver'), {
+        ...form,
+        timestamp: serverTimestamp(),
+      });
+      alert('Blood request submitted successfully!');
+      setForm({
+        name: '',
+        mobile: '',
+        city: '',
+        gender: '',
+        bloodGroup: '',
+        units: 1,
+        purpose: '',
+        medicalConditions: [],
+        requiredDateTime: '',
+      });
+    } catch (e) {
+      alert('Failed to submit request: ' + e.message);
+    }
+  };
+
   if (!fontsLoaded) {
-    return (
-      <View style={styles.loaderContainer}>
-        <ActivityIndicator size="large" color="#D32F2F" />
-      </View>
-    );
+    return <AppLoading />;
   }
-
-  const handleLocate = async () => {
-    let { status } = await Location.requestForegroundPermissionsAsync();
-    if (status !== 'granted') {
-      Alert.alert('Permission denied', 'Allow location permission.');
-      return;
-    }
-    let loc = await Location.getCurrentPositionAsync({});
-    setLocation(loc.coords);
-    Alert.alert(
-      'Location Set',
-      `Lat: ${loc.coords.latitude}, Lon: ${loc.coords.longitude}`
-    );
-  };
-
-  const validatePhone = (number) => {
-    const regex = /^[6-9]\d{9}$/;
-    return regex.test(number);
-  };
-
-  const handleSubmit = () => {
-    if (!bloodGroup || !location || !validatePhone(contactNumber)) {
-      Alert.alert('Error', 'Fill all fields properly.');
-      return;
-    }
-    Alert.alert('Success', 'Blood request submitted!');
-    navigation.navigate('Home');
-  };
 
   return (
     <ScrollView style={styles.container}>
       <Text style={styles.title}>Blood Request Form</Text>
 
-      <Text style={styles.label}>Blood Group</Text>
-      <View style={styles.pickerContainer}>
-        <Picker
-          selectedValue={bloodGroup}
-          onValueChange={(value) => setBloodGroup(value)}
-        >
-          <Picker.Item label="Select Blood Group" value="" />
-          {bloodGroups.map((group) => (
-            <Picker.Item key={group} label={group} value={group} />
-          ))}
-        </Picker>
-      </View>
-
-      <Text style={styles.label}>Units Needed: {unitsNeeded}</Text>
-      <Slider
-        style={{ width: '100%' }}
-        minimumValue={1}
-        maximumValue={10}
-        step={1}
-        value={unitsNeeded}
-        onValueChange={setUnitsNeeded}
-        minimumTrackTintColor="#D32F2F"
-        thumbTintColor="#D32F2F"
-      />
-
-      <Text style={styles.label}>Location</Text>
-      <TouchableOpacity style={styles.input} onPress={handleLocate}>
-        <Text style={styles.inputText}>
-          {location
-            ? `Lat: ${location.latitude}`
-            : 'Auto-locate or pin on map'}
-        </Text>
-      </TouchableOpacity>
-
-      <Text style={styles.label}>Contact Number</Text>
+      <Text style={styles.label}>Full Name</Text>
       <TextInput
         style={styles.input}
-        placeholder="Enter Contact Number"
-        keyboardType="numeric"
-        value={contactNumber}
-        onChangeText={setContactNumber}
+        value={form.name}
+        onChangeText={(text) => setForm({ ...form, name: text })}
+        placeholder="Enter full name"
+      />
+
+      <Text style={styles.label}>Mobile Number</Text>
+      <TextInput
+        style={styles.input}
+        keyboardType="phone-pad"
+        value={form.mobile}
+        onChangeText={(text) => setForm({ ...form, mobile: text })}
+        placeholder="Enter mobile number"
         maxLength={10}
       />
 
-      <View style={styles.priorityContainer}>
-        <TouchableOpacity
-          style={[
-            styles.priorityButton,
-            priority === 'Normal' && styles.activePriority,
-          ]}
-          onPress={() => setPriority('Normal')}
-        >
-          <Text
+      <Text style={styles.label}>City</Text>
+      <ScrollView style={styles.dropdown}>
+        {tamilNaduCities.map((city) => (
+          <TouchableOpacity
+            key={city}
+            onPress={() => setForm({ ...form, city })}
             style={[
-              styles.priorityText,
-              priority === 'Normal' && styles.activePriorityText,
+              styles.dropdownItem,
+              form.city === city && styles.selectedItem,
             ]}
           >
-            Normal
-          </Text>
-        </TouchableOpacity>
+            <Text>{city}</Text>
+          </TouchableOpacity>
+        ))}
+      </ScrollView>
 
-        <TouchableOpacity
-          style={[
-            styles.priorityButton,
-            priority === 'Urgent' && styles.activePriority,
-          ]}
-          onPress={() => setPriority('Urgent')}
-        >
-          <Text
+      <Text style={styles.label}>Gender</Text>
+      <View style={styles.row}>
+        {['Male', 'Female', 'Other'].map((gender) => (
+          <TouchableOpacity
+            key={gender}
             style={[
-              styles.priorityText,
-              priority === 'Urgent' && styles.activePriorityText,
+              styles.radio,
+              form.gender === gender && styles.radioSelected,
             ]}
+            onPress={() => setForm({ ...form, gender })}
           >
-            Urgent
-          </Text>
-        </TouchableOpacity>
+            <Text>{gender}</Text>
+          </TouchableOpacity>
+        ))}
       </View>
 
-      <TouchableOpacity style={styles.submitButton} onPress={handleSubmit}>
-        <Text style={styles.submitButtonText}>Request Blood Now</Text>
-      </TouchableOpacity>
+      <Text style={styles.label}>Blood Group</Text>
+      <View style={styles.row}>
+        {bloodGroups.map((bg) => (
+          <TouchableOpacity
+            key={bg}
+            style={[
+              styles.bloodGroup,
+              form.bloodGroup === bg && styles.bloodGroupSelected,
+            ]}
+            onPress={() => setForm({ ...form, bloodGroup: bg })}
+          >
+            <Text>{bg}</Text>
+          </TouchableOpacity>
+        ))}
+      </View>
 
-      <Text style={styles.label}>Request Status: {requestStatus}</Text>
+      <Text style={styles.label}>Units Needed</Text>
+      <View style={styles.row}>
+        {[1, 2, 3, 4, 5].map((unit) => (
+          <TouchableOpacity
+            key={unit}
+            style={[
+              styles.unitCircle,
+              form.units === unit && styles.unitCircleSelected,
+            ]}
+            onPress={() => setForm({ ...form, units: unit })}
+          >
+            <Text>{unit}</Text>
+          </TouchableOpacity>
+        ))}
+      </View>
 
-      <TouchableOpacity style={styles.socialButton}>
-        <Text style={styles.socialText}>Share on WhatsApp</Text>
-      </TouchableOpacity>
+      <Text style={styles.label}>Purpose</Text>
+      <ScrollView style={styles.dropdown}>
+        {purposes.map((p) => (
+          <TouchableOpacity
+            key={p}
+            onPress={() => setForm({ ...form, purpose: p })}
+            style={[
+              styles.dropdownItem,
+              form.purpose === p && styles.selectedItem,
+            ]}
+          >
+            <Text>{p}</Text>
+          </TouchableOpacity>
+        ))}
+      </ScrollView>
 
-      <TouchableOpacity style={styles.socialButton}>
-        <Text style={styles.socialText}>Share on Social Media</Text>
+      <Text style={styles.label}>Medical Conditions</Text>
+      <View style={styles.conditionsContainer}>
+        {medicalConditionsList.map((cond) => (
+          <TouchableOpacity
+            key={cond}
+            style={[
+              styles.conditionBox,
+              form.medicalConditions.includes(cond) && styles.conditionBoxSelected,
+            ]}
+            onPress={() => handleConditionToggle(cond)}
+          >
+            <Text>{cond}</Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+
+      <Text style={styles.label}>Required Date & Time</Text>
+      <TextInput
+        style={styles.input}
+        placeholder="YYYY-MM-DD HH:mm"
+        value={form.requiredDateTime}
+        onChangeText={(text) => setForm({ ...form, requiredDateTime: text })}
+      />
+
+      <TouchableOpacity style={styles.submitBtn} onPress={handleSubmit}>
+        <Text style={styles.submitText}>Submit Request</Text>
       </TouchableOpacity>
     </ScrollView>
   );
@@ -174,81 +240,100 @@ export default function RequestBloodScreen({ navigation }) {
 
 const styles = StyleSheet.create({
   container: { flex: 1, padding: 20, backgroundColor: '#fff' },
-  loaderContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  title: {
-    fontSize: 24,
-    fontFamily: 'Poppins_700Bold',
-    marginBottom: 20,
-    textAlign: 'center',
-    marginTop: 40,
-  },
-  label: {
-    marginTop: 15,
-    fontFamily: 'Poppins_700Bold',
-    fontSize: 14,
-  },
-  pickerContainer: {
-    borderWidth: 1,
-    borderColor: '#ccc',
-    borderRadius: 8,
-    marginBottom: 10,
-  },
+  title: { fontFamily: 'Poppins_600SemiBold', fontSize: 22, marginBottom: 20 },
+  label: { fontFamily: 'Poppins_600SemiBold', fontSize: 16, marginTop: 15 },
   input: {
     borderWidth: 1,
-    borderColor: '#ccc',
-    borderRadius: 8,
-    padding: 15,
-    marginBottom: 10,
-  },
-  inputText: {
+    borderColor: '#aaa',
+    borderRadius: 6,
+    padding: 10,
+    marginTop: 5,
     fontFamily: 'Poppins_400Regular',
-    color: '#333',
   },
-  priorityContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginVertical: 15,
-  },
-  priorityButton: {
-    flex: 1,
-    alignItems: 'center',
-    padding: 12,
+  dropdown: {
+    maxHeight: 150,
     borderWidth: 1,
-    borderColor: '#ccc',
-    marginHorizontal: 5,
-    borderRadius: 8,
+    borderColor: '#aaa',
+    borderRadius: 6,
+    marginTop: 5,
   },
-  activePriority: {
-    backgroundColor: '#D32F2F',
-    borderColor: '#D32F2F',
+  dropdownItem: {
+    padding: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: '#eee',
   },
-  priorityText: {
-    fontFamily: 'Poppins_400Regular',
-    color: '#000',
+  selectedItem: {
+    backgroundColor: '#d0f0c0',
   },
-  activePriorityText: {
-    color: '#fff',
-    fontFamily: 'Poppins_700Bold',
+  row: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    marginTop: 5,
   },
-  submitButton: {
-    backgroundColor: '#D32F2F',
+  radio: {
+    borderWidth: 1,
+    borderColor: '#aaa',
+    borderRadius: 20,
+    paddingVertical: 6,
+    paddingHorizontal: 15,
+    marginRight: 10,
+    marginTop: 5,
+  },
+  radioSelected: {
+    backgroundColor: '#8fbc8f',
+  },
+  bloodGroup: {
+    borderWidth: 1,
+    borderColor: '#aaa',
+    borderRadius: 20,
+    paddingVertical: 8,
+    paddingHorizontal: 15,
+    marginRight: 10,
+    marginTop: 5,
+  },
+  bloodGroupSelected: {
+    backgroundColor: '#fa8072',
+  },
+  unitCircle: {
+    borderWidth: 1,
+    borderColor: '#aaa',
+    borderRadius: 20,
+    width: 35,
+    height: 35,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 10,
+    marginTop: 5,
+  },
+  unitCircleSelected: {
+    backgroundColor: '#ff6347',
+  },
+  conditionsContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    marginTop: 5,
+  },
+  conditionBox: {
+    borderWidth: 1,
+    borderColor: '#aaa',
+    borderRadius: 6,
+    padding: 8,
+    marginRight: 10,
+    marginTop: 5,
+  },
+  conditionBoxSelected: {
+    backgroundColor: '#add8e6',
+  },
+  submitBtn: {
+    backgroundColor: '#fa8072',
     padding: 15,
     borderRadius: 8,
+    marginTop: 25,
     alignItems: 'center',
-    marginTop: 20,
   },
-  submitButtonText: {
+  submitText: {
     color: '#fff',
-    fontFamily: 'Poppins_700Bold',
-  },
-  socialButton: {
-    backgroundColor: '#eee',
-    padding: 12,
-    borderRadius: 8,
-    alignItems: 'center',
-    marginTop: 10,
-  },
-  socialText: {
-    fontFamily: 'Poppins_400Regular',
+    fontFamily: 'Poppins_600SemiBold',
+    fontSize: 16,
   },
 });

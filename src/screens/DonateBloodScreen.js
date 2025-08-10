@@ -1,213 +1,278 @@
-// DonateBloodScreen.js ✅
-// Make sure file name matches!
-
+// DonateBloodScreen.js
 import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
-import { Picker } from '@react-native-picker/picker';
-import * as Location from 'expo-location';
+import {
+  View, Text, TextInput, TouchableOpacity, ScrollView, StyleSheet,
+} from 'react-native';
+import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
+import { db } from '../services/auth';
+import { useFonts, Poppins_400Regular, Poppins_600SemiBold } from '@expo-google-fonts/poppins';
+import AppLoading from 'expo-app-loading';
 
-export default function DonateBloodScreen() { // ✅ Use the same name!
-  const navigation = useNavigation();
+const tamilNaduCities = [
+  "Chennai", "Coimbatore", "Madurai", "Tiruchirappalli", "Salem",
+  // ... (same full list)
+];
 
-  const [donorName, setDonorName] = useState('');
-  const [bloodGroup, setBloodGroup] = useState('');
-  const [age, setAge] = useState('');
-  const [contactNumber, setContactNumber] = useState('');
-  const [location, setLocation] = useState(null);
-  const [experience, setExperience] = useState('');
+const bloodGroups = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'];
 
-  const handleLocate = async () => {
-    let { status } = await Location.requestForegroundPermissionsAsync();
-    if (status !== 'granted') {
-      Alert.alert('Permission Denied', 'Location permission is required.');
-      return;
-    }
+const medicalConditionsList = [
+  'Diabetes',
+  'Hypertension',
+  'Heart Disease',
+  'Cancer',
+  'Thalassemia',
+  'HIV',
+  'Malaria',
+  'Tuberculosis',
+  'Asthma',
+  'None',
+];
 
-    let loc = await Location.getCurrentPositionAsync({});
-    setLocation({
-      latitude: loc.coords.latitude,
-      longitude: loc.coords.longitude,
+export default function DonateBloodScreen() {
+  let [fontsLoaded] = useFonts({
+    Poppins_400Regular,
+    Poppins_600SemiBold,
+  });
+
+  const [form, setForm] = useState({
+    name: '',
+    mobile: '',
+    city: '',
+    gender: '',
+    bloodGroup: '',
+    age: '',
+    medicalConditions: [],
+  });
+
+  const handleConditionToggle = (condition) => {
+    setForm((prev) => {
+      const conditions = prev.medicalConditions.includes(condition)
+        ? prev.medicalConditions.filter((c) => c !== condition)
+        : [...prev.medicalConditions, condition];
+      return { ...prev, medicalConditions: conditions };
     });
   };
 
-  const handleSubmit = () => {
-    if (!donorName || !bloodGroup || !age || !contactNumber || !location || !experience) {
-      Alert.alert('Error', 'Please fill in all fields.');
+  const handleSubmit = async () => {
+    if (
+      !form.name ||
+      !form.mobile ||
+      !form.city ||
+      !form.gender ||
+      !form.bloodGroup ||
+      !form.age
+    ) {
+      alert('Please fill all mandatory fields');
       return;
     }
-
-    const donorAge = parseInt(age);
-    if (isNaN(donorAge) || donorAge < 18 || donorAge > 65) {
-      Alert.alert('Invalid Age', 'Donor age must be between 18 and 65.');
-      return;
+    try {
+      await addDoc(collection(db, 'BloodDonors'), {
+        ...form,
+        timestamp: serverTimestamp(),
+      });
+      alert('Thank you for registering as a donor!');
+      setForm({
+        name: '',
+        mobile: '',
+        city: '',
+        gender: '',
+        bloodGroup: '',
+        age: '',
+        medicalConditions: [],
+      });
+    } catch (e) {
+      alert('Failed to register donor: ' + e.message);
     }
-
-    if (experience === 'First Time' && donorAge >= 60) {
-      Alert.alert(
-        'Age Restriction',
-        'First time donors above or equal to 60 years cannot donate blood.'
-      );
-      return;
-    }
-
-    if (!/^[6-9]\d{9}$/.test(contactNumber)) {
-      Alert.alert('Invalid Number', 'Please enter a valid 10-digit Indian mobile number.');
-      return;
-    }
-
-    Alert.alert('Success', 'Thank you for registering as a donor!');
-    navigation.navigate('Home'); // ✅ You already have Home in your drawer!
   };
 
+  if (!fontsLoaded) {
+    return <AppLoading />;
+  }
+
   return (
-    <View style={styles.container}>
-      <Text style={styles.heading}>Become a Blood Donor</Text>
+    <ScrollView style={styles.container}>
+      <Text style={styles.title}>Blood Donor Registration</Text>
 
+      <Text style={styles.label}>Full Name</Text>
       <TextInput
         style={styles.input}
-        placeholder="Enter Your Name"
-        placeholderTextColor="#555"
-        value={donorName}
-        onChangeText={setDonorName}
+        value={form.name}
+        onChangeText={(text) => setForm({ ...form, name: text })}
+        placeholder="Enter full name"
       />
 
-      <View style={styles.pickerContainer}>
-        <Picker
-          selectedValue={bloodGroup}
-          onValueChange={(itemValue) => setBloodGroup(itemValue)}
-        >
-          <Picker.Item label="Select Blood Group" value="" />
-          <Picker.Item label="A+" value="A+" />
-          <Picker.Item label="A-" value="A-" />
-          <Picker.Item label="B+" value="B+" />
-          <Picker.Item label="B-" value="B-" />
-          <Picker.Item label="AB+" value="AB+" />
-          <Picker.Item label="AB-" value="AB-" />
-          <Picker.Item label="O+" value="O+" />
-          <Picker.Item label="O-" value="O-" />
-        </Picker>
-      </View>
-
+      <Text style={styles.label}>Mobile Number</Text>
       <TextInput
         style={styles.input}
-        placeholder="Enter Your Age"
-        placeholderTextColor="#555"
-        keyboardType="numeric"
-        maxLength={2}
-        value={age}
-        onChangeText={setAge}
-      />
-
-      <TextInput
-        style={styles.input}
-        placeholder="Your Contact Number"
-        placeholderTextColor="#555"
-        keyboardType="numeric"
+        keyboardType="phone-pad"
+        value={form.mobile}
+        onChangeText={(text) => setForm({ ...form, mobile: text })}
+        placeholder="Enter mobile number"
         maxLength={10}
-        value={contactNumber}
-        onChangeText={setContactNumber}
       />
 
-      <TouchableOpacity style={styles.input} onPress={handleLocate}>
-        <Text style={styles.inputText}>
-          {location
-            ? `Lat: ${location.latitude.toFixed(4)}, Long: ${location.longitude.toFixed(4)}`
-            : 'Auto-locate or pin on map'}
-        </Text>
-      </TouchableOpacity>
+      <Text style={styles.label}>City</Text>
+      <ScrollView style={styles.dropdown}>
+        {tamilNaduCities.map((city) => (
+          <TouchableOpacity
+            key={city}
+            onPress={() => setForm({ ...form, city })}
+            style={[
+              styles.dropdownItem,
+              form.city === city && styles.selectedItem,
+            ]}
+          >
+            <Text>{city}</Text>
+          </TouchableOpacity>
+        ))}
+      </ScrollView>
 
-      <View style={styles.buttonRow}>
-        <TouchableOpacity
-          style={[
-            styles.optionButton,
-            experience === 'First Time' && styles.activeOption,
-          ]}
-          onPress={() => setExperience('First Time')}
-        >
-          <Text style={styles.optionText}>First Time</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={[
-            styles.optionButton,
-            experience === 'Alderly Experienced' && styles.activeOption,
-          ]}
-          onPress={() => setExperience('Alderly Experienced')}
-        >
-          <Text style={styles.optionText}>Alderly Experienced</Text>
-        </TouchableOpacity>
+      <Text style={styles.label}>Gender</Text>
+      <View style={styles.row}>
+        {['Male', 'Female', 'Other'].map((gender) => (
+          <TouchableOpacity
+            key={gender}
+            style={[
+              styles.radio,
+              form.gender === gender && styles.radioSelected,
+            ]}
+            onPress={() => setForm({ ...form, gender })}
+          >
+            <Text>{gender}</Text>
+          </TouchableOpacity>
+        ))}
       </View>
 
-      <TouchableOpacity style={styles.submitButton} onPress={handleSubmit}>
-        <Text style={styles.submitButtonText}>Become a Donor</Text>
+      <Text style={styles.label}>Blood Group</Text>
+      <View style={styles.row}>
+        {bloodGroups.map((bg) => (
+          <TouchableOpacity
+            key={bg}
+            style={[
+              styles.bloodGroup,
+              form.bloodGroup === bg && styles.bloodGroupSelected,
+            ]}
+            onPress={() => setForm({ ...form, bloodGroup: bg })}
+          >
+            <Text>{bg}</Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+
+      <Text style={styles.label}>Age</Text>
+      <TextInput
+        style={styles.input}
+        keyboardType="numeric"
+        value={form.age}
+        onChangeText={(text) => setForm({ ...form, age: text })}
+        placeholder="Enter your age"
+      />
+
+      <Text style={styles.label}>Medical Conditions</Text>
+      <View style={styles.conditionsContainer}>
+        {medicalConditionsList.map((cond) => (
+          <TouchableOpacity
+            key={cond}
+            style={[
+              styles.conditionBox,
+              form.medicalConditions.includes(cond) && styles.conditionBoxSelected,
+            ]}
+            onPress={() => handleConditionToggle(cond)}
+          >
+            <Text>{cond}</Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+
+      <TouchableOpacity style={styles.submitBtn} onPress={handleSubmit}>
+        <Text style={styles.submitText}>Register as Donor</Text>
       </TouchableOpacity>
-    </View>
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    padding: 20,
-    backgroundColor: '#fff',
-  },
-  heading: {
-    fontFamily: 'Poppins_700Bold',
-    fontSize: 24,
-    color: '#000',
-    textAlign: 'center',
-    marginVertical: 20,
-  },
+  container: { flex: 1, padding: 20, backgroundColor: '#fff' },
+  title: { fontFamily: 'Poppins_600SemiBold', fontSize: 22, marginBottom: 20 },
+  label: { fontFamily: 'Poppins_600SemiBold', fontSize: 16, marginTop: 15 },
   input: {
     borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 10,
-    padding: 16,
-    marginBottom: 15,
+    borderColor: '#aaa',
+    borderRadius: 6,
+    padding: 10,
+    marginTop: 5,
     fontFamily: 'Poppins_400Regular',
-    color: '#000',
   },
-  inputText: {
-    fontFamily: 'Poppins_400Regular',
-    color: '#555',
-  },
-  pickerContainer: {
+  dropdown: {
+    maxHeight: 150,
     borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 10,
-    marginBottom: 15,
+    borderColor: '#aaa',
+    borderRadius: 6,
+    marginTop: 5,
   },
-  buttonRow: {
+  dropdownItem: {
+    padding: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: '#eee',
+  },
+  selectedItem: {
+    backgroundColor: '#d0f0c0',
+  },
+  row: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 15,
+    flexWrap: 'wrap',
+    marginTop: 5,
   },
-  optionButton: {
-    flex: 1,
+  radio: {
     borderWidth: 1,
-    borderColor: '#D32F2F',
-    borderRadius: 10,
+    borderColor: '#aaa',
+    borderRadius: 20,
+    paddingVertical: 6,
+    paddingHorizontal: 15,
+    marginRight: 10,
+    marginTop: 5,
+  },
+  radioSelected: {
+    backgroundColor: '#8fbc8f',
+  },
+  bloodGroup: {
+    borderWidth: 1,
+    borderColor: '#aaa',
+    borderRadius: 20,
+    paddingVertical: 8,
+    paddingHorizontal: 15,
+    marginRight: 10,
+    marginTop: 5,
+  },
+  bloodGroupSelected: {
+    backgroundColor: '#fa8072',
+  },
+  conditionsContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    marginTop: 5,
+  },
+  conditionBox: {
+    borderWidth: 1,
+    borderColor: '#aaa',
+    borderRadius: 6,
+    padding: 8,
+    marginRight: 10,
+    marginTop: 5,
+  },
+  conditionBoxSelected: {
+    backgroundColor: '#add8e6',
+  },
+  submitBtn: {
+    backgroundColor: '#fa8072',
     padding: 15,
-    marginHorizontal: 5,
+    borderRadius: 8,
+    marginTop: 25,
     alignItems: 'center',
   },
-  activeOption: {
-    backgroundColor: '#D32F2F',
-  },
-  optionText: {
-    color: '#000',
-    fontFamily: 'Poppins_400Regular',
-  },
-  submitButton: {
-    backgroundColor: '#D32F2F',
-    padding: 16,
-    borderRadius: 10,
-    alignItems: 'center',
-  },
-  submitButtonText: {
+  submitText: {
     color: '#fff',
-    fontFamily: 'Poppins_700Bold',
+    fontFamily: 'Poppins_600SemiBold',
     fontSize: 16,
   },
 });
