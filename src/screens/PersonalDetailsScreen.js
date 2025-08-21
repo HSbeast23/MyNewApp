@@ -18,6 +18,7 @@ import { db, auth } from '../services/auth';
 import * as Notifications from 'expo-notifications';
 import { useFonts, Poppins_400Regular, Poppins_600SemiBold } from '@expo-google-fonts/poppins';
 import { useTranslation } from '../hooks/useTranslation';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const bloodGroups = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'];
 
@@ -25,7 +26,7 @@ const tamilNaduCities = [
   "Chennai", "Coimbatore", "Madurai", "Tiruchirappalli", "Salem",
   "Tirunelveli", "Erode", "Vellore", "Thoothukudi", "Dindigul",
   "Thanjavur", "Ranipet", "Sivakasi", "Karur", "Udhagamandalam",
-  "Hosur", "Nagercoil", "Kanchipuram", "Kumarakonam", "Pudukkottai",
+  "Hosur", "Nagercoil", "Kanchipuram", "Kumbakonam", "Pudukkottai",
   "Ambur", "Palani", "Pollachi", "Rajapalayam", "Gudiyatham",
   "Vaniyambadi", "Gobichettipalayam", "Neyveli", "Pallavaram",
   "Valparai", "Sankarankovil", "Tenkasi", "Palayamkottai", "Mayiladuthurai",
@@ -113,6 +114,9 @@ export default function PersonalDetailsScreen() {
 
       // Update user doc with personal details, replacing old data or create if not exists
       await setDoc(doc(db, 'users', userId), userData, { merge: true });
+      
+      // Store user profile data in AsyncStorage for easy access in other screens
+      await AsyncStorage.setItem('userProfile', JSON.stringify(userData));
 
       Alert.alert('Success', 'Profile created successfully! Welcome to BloodLink!', [
         {

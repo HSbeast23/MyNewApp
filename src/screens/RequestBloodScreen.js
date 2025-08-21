@@ -1,5 +1,5 @@
 // RequestBloodScreen.js
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, ScrollView, StyleSheet, Alert, ActivityIndicator, Platform,
 } from 'react-native';
@@ -11,12 +11,14 @@ import { Poppins_400Regular, Poppins_600SemiBold, Poppins_700Bold } from '@expo-
 import { useFonts } from 'expo-font';
 import * as Notifications from 'expo-notifications';
 import { useTranslation } from '../hooks/useTranslation';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useNavigation } from '@react-navigation/native';
 
 const tamilNaduCities = [
 "Chennai", "Coimbatore", "Madurai", "Tiruchirappalli", "Salem",
   "Tirunelveli", "Erode", "Vellore", "Thoothukudi", "Dindigul",
   "Thanjavur", "Ranipet", "Sivakasi", "Karur", "Udhagamandalam",
-  "Hosur", "Nagercoil", "Kanchipuram", "Kumarakonam", "Pudukkottai",
+  "Hosur", "Nagercoil", "Kanchipuram", "Kumbakonam", "Pudukkottai",
   "Ambur", "Palani", "Pollachi", "Rajapalayam", "Gudiyatham",
   "Vaniyambadi", "Gobichettipalayam", "Neyveli", "Pallavaram",
   "Valparai", "Sankarankovil", "Tenkasi", "Palayamkottai", "Mayiladuthurai",
@@ -52,6 +54,8 @@ const medicalConditionsList = [
 
 export default function RequestBloodScreen() {
   const { t, currentLanguage } = useTranslation();
+  const navigation = useNavigation();
+  
   let [fontsLoaded] = useFonts({
     Poppins_400Regular,
     Poppins_600SemiBold,
@@ -75,6 +79,30 @@ export default function RequestBloodScreen() {
   const [showPurposePicker, setShowPurposePicker] = useState(false);
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [showTimePicker, setShowTimePicker] = useState(false);
+  
+  // Load user profile data from AsyncStorage
+  useEffect(() => {
+    const loadUserProfile = async () => {
+      try {
+        const userProfileData = await AsyncStorage.getItem('userProfile');
+        if (userProfileData) {
+          const userData = JSON.parse(userProfileData);
+          setForm(prevForm => ({
+            ...prevForm,
+            name: userData.name || '',
+            mobile: userData.phone || '',
+            city: userData.city || '',
+            bloodGroup: userData.bloodGroup || '',
+            gender: userData.gender || '',
+          }));
+        }
+      } catch (error) {
+        console.log('Error loading user profile:', error);
+      }
+    };
+
+    loadUserProfile();
+  }, []);
 
   const handleConditionToggle = (condition) => {
     setForm((prev) => {
@@ -199,28 +227,24 @@ export default function RequestBloodScreen() {
       // Send notifications to matching donors
       await notifyMatchingDonors({ ...requestData, id: docRef.id });
 
-      Alert.alert(
-        'Success',
-        'Your blood request has been submitted! Matching donors will be notified.',
-        [
-          {
-            text: 'OK',
-            onPress: () => {
-              setForm({
-                name: '',
-                mobile: '',
-                city: '',
-                gender: '',
-                bloodGroup: '',
-                units: 1,
-                purpose: '',
-                medicalConditions: [],
-                requiredDateTime: new Date(),
-              });
-            }
-          }
-        ]
-      );
+      // Clear form data
+      setForm({
+        name: '',
+        mobile: '',
+        city: '',
+        gender: '',
+        bloodGroup: '',
+        units: 1,
+        purpose: '',
+        medicalConditions: [],
+        requiredDateTime: new Date(),
+      });
+      
+      // Navigate to home with success message
+      navigation.navigate('Home', { 
+        successMessage: 'Your blood request has been submitted! Matching donors will be notified.',
+        successType: 'request'
+      });
     } catch (e) {
       Alert.alert('Error', 'Failed to submit request: ' + e.message);
     } finally {

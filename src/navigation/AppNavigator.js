@@ -8,9 +8,11 @@ import SplashScreen from '../screens/SplashScreen';
 import SignUpScreen from '../screens/SignUpScreen';
 import LoginScreen from '../screens/LoginScreen';
 import PersonalDetailsScreen from '../screens/PersonalDetailsScreen';
+import AdminSetup from '../screens/admin/AdminSetup';
 
-// ✅ Use your DrawerNavigator instead of placing HomeScreen directly!
+// User and Admin Navigators
 import DrawerNavigator from './DrawerNavigator';
+import AdminNavigator from './AdminNavigator';
 
 const Stack = createNativeStackNavigator();
 
@@ -25,9 +27,13 @@ export default function AppNavigator() {
       <Stack.Screen name="SignUp" component={SignUpScreen} />
       <Stack.Screen name="Login" component={LoginScreen} />
       <Stack.Screen name="PersonalDetails" component={PersonalDetailsScreen} />
+      <Stack.Screen name="AdminSetup" component={AdminSetup} />
 
-      {/* ✅ This loads ALL your main screens INSIDE the drawer */}
+      {/* Regular user navigation */}
       <Stack.Screen name="MainDrawer" component={DrawerNavigator} />
+      
+      {/* Admin navigation */}
+      <Stack.Screen name="AdminPanel" component={AdminNavigator} />
     </Stack.Navigator>
   );
 }

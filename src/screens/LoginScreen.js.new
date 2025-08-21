@@ -77,15 +77,10 @@ export default function LoginScreen({ navigation }) {
       style={styles.container}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
-      <TouchableOpacity
-        onLongPress={() => navigation.navigate('AdminSetup')}
-        delayLongPress={2000} // 2 seconds long press to activate
-      >
-        <Image
-          source={require('../../assets/images/welcome.png')}
-          style={styles.logo}
-        />
-      </TouchableOpacity>
+      <Image
+        source={require('../../assets/images/welcome.png')}
+        style={styles.logo}
+      />
 
       <Text style={styles.title}>
         Login to <Text style={{ color: '#b71c1c' }}>BloodLink</Text>
@@ -144,8 +139,14 @@ export default function LoginScreen({ navigation }) {
           <Text style={styles.linkHighlight}>Register here</Text>
         </Text>
       </TouchableOpacity>
-      
-      {/* Hidden admin button - triggered by long press on the app logo */}
+
+      <TouchableOpacity 
+        style={styles.adminSetupButton} 
+        onPress={() => navigation.navigate('AdminSetup')}
+      >
+        <Ionicons name="shield-outline" size={16} color="#e74c3c" style={{marginRight: 5}} />
+        <Text style={styles.adminSetupText}>Admin Setup</Text>
+      </TouchableOpacity>
     </KeyboardAvoidingView>
   );
 }
@@ -243,5 +244,16 @@ const styles = StyleSheet.create({
   linkHighlight: {
     color: '#b71c1c',
     fontFamily: 'Poppins_600SemiBold',
+  },
+  adminSetupButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 15,
+    padding: 10,
+  },
+  adminSetupText: {
+    color: '#e74c3c',
+    fontSize: 12,
+    fontFamily: 'Poppins_400Regular',
   }
 });

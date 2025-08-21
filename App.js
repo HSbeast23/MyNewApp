@@ -3,6 +3,7 @@ import { View, ActivityIndicator } from 'react-native';
 import * as SplashScreen from 'expo-splash-screen';
 import { NavigationContainer } from '@react-navigation/native';
 import { useFonts, Poppins_400Regular, Poppins_500Medium, Poppins_700Bold } from '@expo-google-fonts/poppins';
+import { Provider as PaperProvider, DefaultTheme } from 'react-native-paper';
 
 import AppNavigator from './src/navigation/AppNavigator';
 import { LanguageProvider } from './src/contexts/LanguageContext';
@@ -38,13 +39,25 @@ export default function App() {
     return null; // Keep splash visible
   }
 
+  // Define theme
+  const theme = {
+    ...DefaultTheme,
+    colors: {
+      ...DefaultTheme.colors,
+      primary: '#b71c1c',
+      accent: '#e74c3c',
+    },
+  };
+
   return (
-    <LanguageProvider>
-      <View style={{ flex: 1 }} onLayout={onLayoutRootView}>
-        <NavigationContainer>
-          <AppNavigator />
-        </NavigationContainer>
-      </View>
-    </LanguageProvider>
+    <PaperProvider theme={theme}>
+      <LanguageProvider>
+        <View style={{ flex: 1 }} onLayout={onLayoutRootView}>
+          <NavigationContainer>
+            <AppNavigator />
+          </NavigationContainer>
+        </View>
+      </LanguageProvider>
+    </PaperProvider>
   );
 }

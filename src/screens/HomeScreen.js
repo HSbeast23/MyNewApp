@@ -1,9 +1,10 @@
 import React, { useRef, useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, FlatList, Image, Dimensions } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, FlatList, Image, Dimensions, Alert } from 'react-native';
 import { Ionicons, MaterialIcons, FontAwesome5, MaterialCommunityIcons } from '@expo/vector-icons';
 import { collection, query, where, onSnapshot, getDocs, getDoc, doc } from 'firebase/firestore';
 import { db, auth } from '../services/auth';
 import { useTranslation } from '../hooks/useTranslation';
+import { useFocusEffect } from '@react-navigation/native';
 
 const { width } = Dimensions.get('window'); // ✅ Declare only once at the top!
 
@@ -14,12 +15,37 @@ const slides = [
   { id: '3', image: require('../../assets/im3.webp') },
 ];
 
-export default function HomeScreen({ navigation }) {
+export default function HomeScreen({ navigation, route }) {
   const { t, currentLanguage } = useTranslation();
   const [currentIndex, setCurrentIndex] = useState(0);
   const [userProfile, setUserProfile] = useState(null);
   const [notificationCount, setNotificationCount] = useState(0);
+  const [successMessage, setSuccessMessage] = useState('');
+  const [showSuccessCard, setShowSuccessCard] = useState(false);
   const slidesRef = useRef(null);
+  
+  // Check for success message from form submission
+  useEffect(() => {
+    if (route.params?.successMessage) {
+      setSuccessMessage(route.params.successMessage);
+      setShowSuccessCard(true);
+      
+      // Show success message
+      Alert.alert(
+        route.params.successType === 'donation' ? 'Donation Registered' : 'Request Submitted',
+        route.params.successMessage,
+        [{ text: 'OK' }]
+      );
+      
+      // Clear params to avoid showing the alert again on screen focus
+      navigation.setParams({ successMessage: undefined, successType: undefined });
+      
+      // Hide the success card after 5 seconds
+      setTimeout(() => {
+        setShowSuccessCard(false);
+      }, 5000);
+    }
+  }, [route.params?.successMessage]);
 
   // Fetch real user data
   useEffect(() => {
@@ -149,6 +175,14 @@ export default function HomeScreen({ navigation }) {
             )}
           </TouchableOpacity>
         </View>
+        
+        {/* Success message card */}
+        {showSuccessCard && (
+          <View style={styles.successCard}>
+            <Ionicons name="checkmark-circle" size={24} color="#4CAF50" />
+            <Text style={styles.successText}>{successMessage}</Text>
+          </View>
+        )}
 
         {/* User card */}
         <View style={styles.userCard}>
@@ -424,5 +458,26 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 10,
     fontFamily: 'Poppins_600SemiBold',
+  },
+  successCard: {
+    backgroundColor: '#e8f5e9',
+    padding: 15,
+    marginHorizontal: 20,
+    marginVertical: 10,
+    borderRadius: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  successText: {
+    flex: 1,
+    marginLeft: 10,
+    fontFamily: 'Poppins_400Regular',
+    fontSize: 14,
+    color: '#388e3c',
   },
 });

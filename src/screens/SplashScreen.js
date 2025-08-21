@@ -19,7 +19,11 @@ export default function SplashScreen({ navigation }) {
 
             if (userDocSnap.exists()) {
               const data = userDocSnap.data();
-              if (data.profileComplete) {
+              
+              // Check if user is an admin
+              if (data.isAdmin) {
+                navigation.replace('AdminPanel'); // Navigate to admin panel
+              } else if (data.profileComplete) {
                 navigation.replace('MainDrawer'); // Profile done → Home
               } else {
                 navigation.replace('PersonalDetails'); // Profile incomplete → PersonalDetails form

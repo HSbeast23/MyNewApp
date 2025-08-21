@@ -1,5 +1,5 @@
 // DonateBloodScreen.js
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, ScrollView, StyleSheet, Alert, ActivityIndicator,
 } from 'react-native';
@@ -11,10 +11,21 @@ import { useFonts, Poppins_400Regular, Poppins_600SemiBold, Poppins_700Bold } fr
 import * as Notifications from 'expo-notifications';
 import notificationService from '../services/notificationService';
 import { useTranslation } from '../hooks/useTranslation';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useNavigation } from '@react-navigation/native';
 
 const tamilNaduCities = [
-  "Chennai", "Coimbatore", "Madurai", "Tiruchirappalli", "Salem",
-  // ... (same full list)
+
+"Chennai", "Coimbatore", "Madurai", "Tiruchirappalli", "Salem",
+  "Tirunelveli", "Erode", "Vellore", "Thoothukudi", "Dindigul",
+  "Thanjavur", "Ranipet", "Sivakasi", "Karur", "Udhagamandalam",
+  "Hosur", "Nagercoil", "Kanchipuram", "Kumbakonam", "Pudukkottai",
+  "Ambur", "Palani", "Pollachi", "Rajapalayam", "Gudiyatham",
+  "Vaniyambadi", "Gobichettipalayam", "Neyveli", "Pallavaram",
+  "Valparai", "Sankarankovil", "Tenkasi", "Palayamkottai", "Mayiladuthurai",
+  "Vikramasingapuram", "Arakkonam", "Sirkali", "Chidambaram", "Panruti",
+  "Lalgudi", "Adyar", "Tiruvannamalai", "Nagapattinam", "Nandivaram-Guduvancheri",
+  "Tiruppur", "Avadi", "Tambaram", "Ambattur"
 ];
 
 const bloodGroups = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'];
@@ -34,6 +45,8 @@ const medicalConditionsList = [
 
 export default function DonateBloodScreen() {
   const { t, currentLanguage } = useTranslation();
+  const navigation = useNavigation();
+  
   let [fontsLoaded] = useFonts({
     Poppins_400Regular,
     Poppins_600SemiBold,
@@ -53,6 +66,31 @@ export default function DonateBloodScreen() {
   const [loading, setLoading] = useState(false);
   const [showCityPicker, setShowCityPicker] = useState(false);
   const [showBloodGroupPicker, setShowBloodGroupPicker] = useState(false);
+  const [successMessage, setSuccessMessage] = useState('');
+
+  // Load user profile data from AsyncStorage
+  useEffect(() => {
+    const loadUserProfile = async () => {
+      try {
+        const userProfileData = await AsyncStorage.getItem('userProfile');
+        if (userProfileData) {
+          const userData = JSON.parse(userProfileData);
+          setForm(prevForm => ({
+            ...prevForm,
+            name: userData.name || '',
+            mobile: userData.phone || '',
+            city: userData.city || '',
+            bloodGroup: userData.bloodGroup || '',
+            age: userData.age ? userData.age.toString() : '',
+          }));
+        }
+      } catch (error) {
+        console.log('Error loading user profile:', error);
+      }
+    };
+
+    loadUserProfile();
+  }, []);
 
   const handleConditionToggle = (condition) => {
     setForm((prev) => {
@@ -178,26 +216,25 @@ export default function DonateBloodScreen() {
         successMessage += ' You will receive notifications when someone needs your blood type in your city.';
       }
       
-      Alert.alert(
-        'Success', 
-        successMessage,
-        [
-          {
-            text: 'OK',
-            onPress: () => {
-              setForm({
-                name: '',
-                mobile: '',
-                city: '',
-                gender: '',
-                bloodGroup: '',
-                age: '',
-                medicalConditions: [],
-              });
-            }
-          }
-        ]
-      );
+      // Store success message and navigate to home
+      setSuccessMessage(successMessage);
+      
+      // Clear form data
+      setForm({
+        name: '',
+        mobile: '',
+        city: '',
+        gender: '',
+        bloodGroup: '',
+        age: '',
+        medicalConditions: [],
+      });
+      
+      // Navigate to home with success message
+      navigation.navigate('Home', { 
+        successMessage: successMessage,
+        successType: 'donation'
+      });
     } catch (e) {
       Alert.alert('Error', 'Failed to register donor: ' + e.message);
     } finally {
