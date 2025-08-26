@@ -65,7 +65,6 @@ export default function PrivacyPolicyScreen() {
           <Text style={styles.bulletPoint}>• Device information and identifiers</Text>
           <Text style={styles.bulletPoint}>• App usage data and analytics</Text>
           <Text style={styles.bulletPoint}>• Location data (with your permission)</Text>
-          <Text style={styles.bulletPoint}>• Push notification tokens</Text>
         </View>
       </View>
 

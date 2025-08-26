@@ -9,7 +9,6 @@ import { collection, addDoc, serverTimestamp, query, where, getDocs } from 'fire
 import { db, auth } from '../services/auth';
 import { Poppins_400Regular, Poppins_600SemiBold, Poppins_700Bold } from '@expo-google-fonts/poppins';
 import { useFonts } from 'expo-font';
-import * as Notifications from 'expo-notifications';
 import { useTranslation } from '../hooks/useTranslation';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation } from '@react-navigation/native';
@@ -113,74 +112,13 @@ export default function RequestBloodScreen() {
     });
   };
 
-  // Get push notification token
-  const getPushToken = async () => {
-    try {
-      const { status } = await Notifications.requestPermissionsAsync();
-      if (status !== 'granted') {
-        console.log('Push notification permission not granted');
-        return null;
-      }
-
-      // For Expo Go, we don't need to specify projectId
-      const token = await Notifications.getExpoPushTokenAsync();
-      console.log('Push token generated:', token.data);
-      return token.data;
-    } catch (error) {
-      console.log('Error getting push token:', error);
-      return null;
-    }
-  };
-
-  // Send push notification to matching donors
-  const notifyMatchingDonors = async (requestData) => {
-    try {
-      // Find donors with matching blood group and city
-      const donorsQuery = query(
-        collection(db, 'BloodDonors'),
-        where('bloodGroup', '==', requestData.bloodGroup),
-        where('city', '==', requestData.city)
-      );
-
-      const donorsSnapshot = await getDocs(donorsQuery);
-
-      const notifications = [];
-      donorsSnapshot.forEach((doc) => {
-        const donor = doc.data();
-        if (donor.expoPushToken) {
-          notifications.push({
-            to: donor.expoPushToken,
-            sound: 'default',
-            title: '🩸 Blood Donation Request',
-            body: `${requestData.bloodGroup} blood needed in ${requestData.city} for ${requestData.purpose}. Can you help?`,
-            data: {
-              screen: 'NotificationScreen',
-              requestId: requestData.id,
-              bloodGroup: requestData.bloodGroup,
-              city: requestData.city,
-            },
-          });
-        }
-      });
-
-      // Send notifications using Expo Push API
-      if (notifications.length > 0) {
-        await fetch('https://exp.host/--/api/v2/push/send', {
-          method: 'POST',
-          headers: {
-            Accept: 'application/json',
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(notifications),
-        });
-        console.log(`Sent notifications to ${notifications.length} matching donors`);
-      }
-    } catch (error) {
-      console.log('Error sending notifications:', error);
-    }
-  };
-
   const handleSubmit = async () => {
+    // Prevent multiple rapid submissions
+    if (loading) {
+      console.log('Request already in progress, ignoring duplicate submission');
+      return;
+    }
+
     if (
       !form.name ||
       !form.mobile ||
@@ -200,7 +138,6 @@ export default function RequestBloodScreen() {
 
     setLoading(true);
     try {
-      const pushToken = await getPushToken();
       const user = auth.currentUser;
 
       const requestData = {
@@ -213,7 +150,6 @@ export default function RequestBloodScreen() {
         purpose: form.purpose,
         conditions: form.medicalConditions,
         requiredDateTime: formatDateTime(form.requiredDateTime),
-        pushToken: pushToken,
         uid: user?.uid,
         createdAt: serverTimestamp(),
         status: 'pending',
@@ -223,9 +159,6 @@ export default function RequestBloodScreen() {
       };
 
       const docRef = await addDoc(collection(db, 'Bloodreceiver'), requestData);
-
-      // Send notifications to matching donors
-      await notifyMatchingDonors({ ...requestData, id: docRef.id });
 
       // Clear form data
       setForm({

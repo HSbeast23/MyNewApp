@@ -8,8 +8,6 @@ import { Picker } from '@react-native-picker/picker';
 import { collection, addDoc, serverTimestamp, query, where, getDocs } from 'firebase/firestore';
 import { db, auth } from '../services/auth';
 import { useFonts, Poppins_400Regular, Poppins_600SemiBold, Poppins_700Bold } from '@expo-google-fonts/poppins';
-import * as Notifications from 'expo-notifications';
-import notificationService from '../services/notificationService';
 import { useTranslation } from '../hooks/useTranslation';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation } from '@react-navigation/native';
@@ -111,25 +109,6 @@ export default function DonateBloodScreen() {
     });
   };
 
-  // Get push notification token
-  const getPushToken = async () => {
-    try {
-      const { status } = await Notifications.requestPermissionsAsync();
-      if (status !== 'granted') {
-        console.log('Push notification permission not granted');
-        return null;
-      }
-
-      // For Expo Go, we don't need to specify projectId
-      const token = await Notifications.getExpoPushTokenAsync();
-      console.log('Push token generated:', token.data);
-      return token.data;
-    } catch (error) {
-      console.log('Error getting push token:', error);
-      return null;
-    }
-  };
-
   const handleSubmit = async () => {
     if (
       !form.name ||
@@ -178,7 +157,6 @@ export default function DonateBloodScreen() {
 
     setLoading(true);
     try {
-      const pushToken = await getPushToken();
       const user = auth.currentUser;
       
       // Save donor data
@@ -190,8 +168,6 @@ export default function DonateBloodScreen() {
         bloodGroup: form.bloodGroup,
         age: form.age,
         medicalConditions: form.medicalConditions,
-        pushToken: pushToken,
-        expoPushToken: pushToken, // Add this for compatibility
         uid: user?.uid,
         createdAt: serverTimestamp(),
         isActive: true,
@@ -213,7 +189,7 @@ export default function DonateBloodScreen() {
       if (matchCount > 0) {
         successMessage += ` Great news! There ${matchCount === 1 ? 'is' : 'are'} ${matchCount} matching blood request${matchCount === 1 ? '' : 's'} in your area. Check your Notifications to help save ${matchCount === 1 ? 'a life' : 'lives'}!`;
       } else {
-        successMessage += ' You will receive notifications when someone needs your blood type in your city.';
+        successMessage += ' You can check the Notifications screen to see if anyone needs your blood type.';
       }
       
       // Store success message and navigate to home

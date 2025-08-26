@@ -146,6 +146,7 @@ export default function HomeScreen({ navigation, route }) {
     return () => unsubscribe();
   }, [userProfile]);
 
+  // Notification functionality removed for cleaner code
   const viewableItemsChanged = useRef(({ viewableItems }) => {
     if (viewableItems.length > 0) {
       setCurrentIndex(viewableItems[0].index);
@@ -272,6 +273,8 @@ export default function HomeScreen({ navigation, route }) {
             <Text style={styles.iconLabel}>{t('donateHistory')}</Text>
           </TouchableOpacity>
         </View>
+        
+
       </ScrollView>
 
       {/* Footer */}

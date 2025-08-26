@@ -15,7 +15,6 @@ import { Picker } from '@react-native-picker/picker';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { db, auth } from '../services/auth';
-import * as Notifications from 'expo-notifications';
 import { useFonts, Poppins_400Regular, Poppins_600SemiBold } from '@expo-google-fonts/poppins';
 import { useTranslation } from '../hooks/useTranslation';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -57,23 +56,6 @@ export default function PersonalDetailsScreen() {
   const [showBloodGroupPicker, setShowBloodGroupPicker] = useState(false);
   const [showCityPicker, setShowCityPicker] = useState(false);
 
-  // Get push notification token
-  const getPushToken = async () => {
-    try {
-      const { status } = await Notifications.requestPermissionsAsync();
-      if (status !== 'granted') {
-        Alert.alert('Permission required', 'Push notifications permission is required for blood donation alerts.');
-        return null;
-      }
-
-      const token = await Notifications.getExpoPushTokenAsync();
-      return token.data;
-    } catch (error) {
-      console.log('Error getting push token:', error);
-      return null;
-    }
-  };
-
   const handleSubmit = async () => {
     if (!formData.name || !formData.age || !formData.phone || !formData.bloodGroup || !formData.city) {
       Alert.alert('Error', 'Please fill all fields');
@@ -92,8 +74,6 @@ export default function PersonalDetailsScreen() {
     }
 
     try {
-      const pushToken = await getPushToken();
-
       const userId = auth.currentUser?.uid;
       if (!userId) {
         Alert.alert('Error', 'User not logged in');
@@ -107,7 +87,6 @@ export default function PersonalDetailsScreen() {
         bloodGroup: formData.bloodGroup,
         city: formData.city,
         email,
-        expoPushToken: pushToken || '',
         profileComplete: true,
         updatedAt: serverTimestamp(),
       };

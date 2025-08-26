@@ -12,6 +12,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   ActivityIndicator,
+  ScrollView,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useFonts, Poppins_400Regular, Poppins_600SemiBold, Poppins_700Bold } from '@expo-google-fonts/poppins';
@@ -75,77 +76,86 @@ export default function LoginScreen({ navigation }) {
   return (
     <KeyboardAvoidingView
       style={styles.container}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
     >
-      <TouchableOpacity
-        onLongPress={() => navigation.navigate('AdminSetup')}
-        delayLongPress={2000} // 2 seconds long press to activate
+      <ScrollView 
+        contentContainerStyle={styles.scrollContainer}
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
       >
-        <Image
-          source={require('../../assets/images/welcome.png')}
-          style={styles.logo}
-        />
-      </TouchableOpacity>
-
-      <Text style={styles.title}>
-        Login to <Text style={{ color: '#b71c1c' }}>BloodLink</Text>
-      </Text>
-
-      <View style={styles.inputContainer}>
-        <Ionicons name="mail-outline" size={20} color="#666" style={styles.inputIcon} />
-        <TextInput
-          placeholder="Email"
-          placeholderTextColor="#888"
-          value={email}
-          onChangeText={setEmail}
-          style={styles.input}
-          autoCapitalize="none"
-          keyboardType="email-address"
-        />
-      </View>
-
-      <View style={styles.inputContainer}>
-        <Ionicons name="lock-closed-outline" size={20} color="#666" style={styles.inputIcon} />
-        <TextInput
-          placeholder="Password"
-          placeholderTextColor="#888"
-          value={password}
-          onChangeText={setPassword}
-          style={styles.input}
-          secureTextEntry={!showPassword}
-        />
         <TouchableOpacity
-          onPress={() => setShowPassword(!showPassword)}
-          style={styles.eyeIcon}
+          onLongPress={() => navigation.navigate('AdminSetup')}
+          delayLongPress={2000} // 2 seconds long press to activate
         >
-          <Ionicons
-            name={showPassword ? "eye-outline" : "eye-off-outline"}
-            size={20}
-            color="#666"
+          <Image
+            source={require('../../assets/images/welcome.png')}
+            style={styles.logo}
           />
         </TouchableOpacity>
-      </View>
 
-      <TouchableOpacity
-        style={[styles.button, loading && styles.buttonDisabled]}
-        onPress={handleLogin}
-        disabled={loading}
-      >
-        {loading ? (
-          <ActivityIndicator color="#fff" size="small" />
-        ) : (
-          <Text style={styles.buttonText}>Login</Text>
-        )}
-      </TouchableOpacity>
-
-      <TouchableOpacity onPress={() => navigation.navigate('SignUp')}>
-        <Text style={styles.linkText}>
-          Don't have an account?{' '}
-          <Text style={styles.linkHighlight}>Register here</Text>
+        <Text style={styles.title}>
+          Login to <Text style={{ color: '#b71c1c' }}>BloodLink</Text>
         </Text>
-      </TouchableOpacity>
-      
-      {/* Hidden admin button - triggered by long press on the app logo */}
+
+        <View style={styles.formContainer}>
+          <View style={styles.inputContainer}>
+            <Ionicons name="mail-outline" size={20} color="#666" style={styles.inputIcon} />
+            <TextInput
+              placeholder="Email"
+              placeholderTextColor="#888"
+              value={email}
+              onChangeText={setEmail}
+              style={styles.input}
+              autoCapitalize="none"
+              keyboardType="email-address"
+            />
+          </View>
+
+          <View style={styles.inputContainer}>
+            <Ionicons name="lock-closed-outline" size={20} color="#666" style={styles.inputIcon} />
+            <TextInput
+              placeholder="Password"
+              placeholderTextColor="#888"
+              value={password}
+              onChangeText={setPassword}
+              style={styles.input}
+              secureTextEntry={!showPassword}
+            />
+            <TouchableOpacity
+              onPress={() => setShowPassword(!showPassword)}
+              style={styles.eyeIcon}
+            >
+              <Ionicons
+                name={showPassword ? "eye-outline" : "eye-off-outline"}
+                size={20}
+                color="#666"
+              />
+            </TouchableOpacity>
+          </View>
+
+          <TouchableOpacity
+            style={[styles.button, loading && styles.buttonDisabled]}
+            onPress={handleLogin}
+            disabled={loading}
+          >
+            {loading ? (
+              <ActivityIndicator color="#fff" size="small" />
+            ) : (
+              <Text style={styles.buttonText}>Login</Text>
+            )}
+          </TouchableOpacity>
+
+          <TouchableOpacity onPress={() => navigation.navigate('SignUp')}>
+            <Text style={styles.linkText}>
+              Don't have an account?{' '}
+              <Text style={styles.linkHighlight}>Register here</Text>
+            </Text>
+          </TouchableOpacity>
+        </View>
+        
+        {/* Hidden admin button - triggered by long press on the app logo */}
+      </ScrollView>
     </KeyboardAvoidingView>
   );
 }
@@ -160,22 +170,31 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#f8f9fa',
+  },
+  scrollContainer: {
+    flexGrow: 1,
     paddingHorizontal: 25,
+    paddingVertical: 40,
     justifyContent: 'center',
     alignItems: 'center',
+    minHeight: '100%',
   },
   logo: {
-    width: 120,
-    height: 120,
-    marginBottom: 30,
+    width: 100,
+    height: 100,
+    marginBottom: 20,
     resizeMode: 'contain',
   },
   title: {
-    fontSize: 28,
+    fontSize: 24,
     fontFamily: 'Poppins_700Bold',
-    marginBottom: 40,
+    marginBottom: 30,
     textAlign: 'center',
     color: '#333',
+  },
+  formContainer: {
+    width: '100%',
+    paddingBottom: 40,
   },
   inputContainer: {
     width: '100%',
@@ -239,6 +258,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#666',
     textAlign: 'center',
+    marginTop: 10,
   },
   linkHighlight: {
     color: '#b71c1c',
