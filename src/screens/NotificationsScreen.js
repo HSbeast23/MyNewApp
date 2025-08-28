@@ -201,30 +201,56 @@ export default function NotificationsScreen() {
     fetchUserDetails();
   }, []);
 
-  // Check if user is primarily a donor
+  // Check if user is primarily a donor or show both donor and receiver UI
   const checkUserIsDonor = async (userId) => {
-    // Check for blood requests (as receiver)
-    const receiverQuery = query(
-      collection(db, 'Bloodreceiver'),
-      where('uid', '==', userId)
-    );
-    const receiverDocs = await getDocs(receiverQuery);
-    
-    // Check for donor profile
-    const donorQuery = query(
-      collection(db, 'BloodDonors'),
-      where('uid', '==', userId)
-    );
-    const donorDocs = await getDocs(donorQuery);
-    
-    // If user has made more donations than requests, consider them a donor
-    // Or if they have a donor profile but no requests
-    if (donorDocs.size > 0 && (donorDocs.size >= receiverDocs.size || receiverDocs.size === 0)) {
+    try {
+      // Check for blood requests (as receiver)
+      const receiverQuery = query(
+        collection(db, 'Bloodreceiver'),
+        where('uid', '==', userId)
+      );
+      const receiverDocs = await getDocs(receiverQuery);
+      
+      // Check for donor profile
+      const donorQuery = query(
+        collection(db, 'BloodDonors'),
+        where('uid', '==', userId)
+      );
+      const donorDocs = await getDocs(donorQuery);
+      
+      console.log(`Found ${donorDocs.size} donor docs and ${receiverDocs.size} receiver docs for user ${userId}`);
+      
+      // Show donor view by default - This ensures the matching flow works
+      // If user hasn't made any requests, they're definitely a donor
+      if (receiverDocs.size === 0) {
+        return true;
+      }
+      
+      // Check if there's a recent pending request (within last 7 days)
+      let hasRecentPendingRequest = false;
+      receiverDocs.forEach(doc => {
+        const data = doc.data();
+        if (data.status === 'pending') {
+          const requestTime = data.createdAt?.toDate ? data.createdAt.toDate() : new Date();
+          const daysSinceRequest = (Date.now() - requestTime.getTime()) / (1000 * 60 * 60 * 24);
+          if (daysSinceRequest < 7) {
+            hasRecentPendingRequest = true;
+          }
+        }
+      });
+      
+      // If there's a recent pending request, show receiver view
+      if (hasRecentPendingRequest) {
+        return false;
+      }
+      
+      // Otherwise show donor view
+      return true;
+    } catch (error) {
+      console.error('Error checking user role:', error);
+      // Default to donor if there's an error
       return true;
     }
-    
-    // Otherwise, consider them a receiver
-    return false;
   };
 
   // Listen for matching blood requests (for donors)

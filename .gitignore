@@ -1,41 +1,83 @@
-# ✅ Node dependencies
+# Node dependencies
 node_modules/
+npm-debug.log
+yarn-error.log
+yarn-debug.log
 
-# ✅ Expo local folders
+# Expo
 .expo/
 dist/
 web-build/
 expo-env.d.ts
 
-# ✅ Native build folders (Prebuild + EAS Build)
+# Native build folders (Prebuild + EAS Build)
 android/
 ios/
 
-# ✅ Metro bundler cache
+# Metro bundler cache
 .metro-cache/
 metro-cache/
-metro-health-check*
+.metro-health-check*
 
-# ✅ Debug logs
-npm-debug.*
-yarn-debug.*
-yarn-error.*
-
-# ✅ Certificates & keys
+# Firebase credentials & sensitive files
+google-services.json
+serviceAccountKey.json
+serviceAccountKey.json.json
+GoogleService-Info.plist
+firebase-credentials.json
+firebase-adminsdk*.json
+functions/serviceAccountKey.json
 *.jks
-*.keystore
 *.p8
 *.p12
 *.key
 *.mobileprovision
+*.orig.*
+*.cer
+*.keystore
 *.pem
+*.env
 
-# ✅ Environment files
+# Local environment files
 .env
 .env.*
-.env*.local
+.env.local
+.env.development
+.env.production
 
-# ✅ Misc
-*.orig.*
+# OS specific files
 .DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# IDE files
+.idea/
+.vscode/
+*.swp
+*.swo
+.history/
+*.sublime-*
+
+# Build output
+build/
+dist/
+*.aab
+*.apk
+*.ipa
+*.app
+*.dSYM.zip
+
+# Temporary files
+tmp/
+temp/
 *.tsbuildinfo
+*.log
+npm-debug.*
+
+# Config files that might contain sensitive info
+config.js
+secrets.js

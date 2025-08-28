@@ -1,16 +1,30 @@
 {
   "expo": {
-    "name": "MyNewApp",
-    "slug": "MyNewApp",
+    "name": "BloodLink",
+    "displayName": "BloodLink",
+    "slug": "bloodlink", 
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/icon.png",
+    "icon": "./assets/icon.jpg",
     "userInterfaceStyle": "light",
     "newArchEnabled": true,
-    "scheme": "mynewapp", 
+    "scheme": "bloodlink",
+    "assetBundlePatterns": ["**/*"],
+    "packagerOpts": {
+      "assetExts": ["ttf", "json", "png", "jpg", "jpeg", "webp"]
+    },
+    "jsEngine": "hermes",
     "splash": {
-      "image": "./assets/splash-icon.png",
+      "image": "./assets/images/splash.png",
       "resizeMode": "contain",
+      "backgroundColor": "#ffffff"
+    },
+    "androidStatusBar": {
+      "backgroundColor": "#ffffff",
+      "translucent": true
+    },
+    "androidNavigationBar": {
+      "barStyle": "light-content",
       "backgroundColor": "#ffffff"
     },
     "ios": {
@@ -20,7 +34,7 @@
     "android": {
       "package": "com.haarhish.MyNewApp",
       "adaptiveIcon": {
-        "foregroundImage": "./assets/adaptive-icon.png",
+        "foregroundImage": "./assets/adaptive-icon.jpg",
         "backgroundColor": "#ffffff"
       },
       "edgeToEdgeEnabled": true,
@@ -51,7 +65,7 @@
       [
         "expo-notifications",
         {
-          "icon": "./assets/icon.png",
+          "icon": "./assets/icon.jpg",
           "color": "#b71c1c",
           "defaultChannel": "default",
           "sounds": []
