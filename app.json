@@ -2,16 +2,24 @@
   "expo": {
     "name": "BloodLink",
     "displayName": "BloodLink",
-    "slug": "bloodlink", 
+    "slug": "MyNewApp",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.jpg",
     "userInterfaceStyle": "light",
-    "newArchEnabled": true,
     "scheme": "bloodlink",
-    "assetBundlePatterns": ["**/*"],
+    "assetBundlePatterns": [
+      "**/*"
+    ],
     "packagerOpts": {
-      "assetExts": ["ttf", "json", "png", "jpg", "jpeg", "webp"]
+      "assetExts": [
+        "ttf",
+        "json",
+        "png",
+        "jpg",
+        "jpeg",
+        "webp"
+      ]
     },
     "jsEngine": "hermes",
     "splash": {
@@ -27,39 +35,10 @@
       "barStyle": "light-content",
       "backgroundColor": "#ffffff"
     },
-    "ios": {
-      "supportsTablet": true,
-      "bundleIdentifier": "com.haarhish.MyNewApp"
-    },
-    "android": {
-      "package": "com.haarhish.MyNewApp",
-      "adaptiveIcon": {
-        "foregroundImage": "./assets/adaptive-icon.jpg",
-        "backgroundColor": "#ffffff"
-      },
-      "edgeToEdgeEnabled": true,
-      "googleServicesFile": "./google-services.json",
-      "permissions": [
-        "NOTIFICATIONS",
-        "RECEIVE_BOOT_COMPLETED",
-        "VIBRATE",
-        "WAKE_LOCK"
-      ]
-    },
     "web": {
       "favicon": "./assets/favicon.png"
     },
     "plugins": [
-      [
-        "expo-build-properties",
-        {
-          "android": {
-            "compileSdkVersion": 35,
-            "targetSdkVersion": 35,
-            "buildToolsVersion": "35.0.0"
-          }
-        }
-      ],
       "expo-font",
       "expo-web-browser",
       [
@@ -71,11 +50,6 @@
           "sounds": []
         }
       ]
-    ],
-    "extra": {
-      "eas": {
-        "projectId": "f39544fe-e9d3-46ab-b253-4ecd6a0a4ede"
-      }
-    }
+    ]
   }
 }
