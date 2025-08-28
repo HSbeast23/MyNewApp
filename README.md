@@ -27,7 +27,6 @@ A modern React Native & Expo mobile application connecting blood donors with rec
 - **Database**: Firestore
 - **Authentication**: Firebase Auth
 - **Push Notifications**: Firebase Cloud Messaging (FCM)
-- **Maps & Location**: Expo Location, React Native Maps
 - **Internationalization**: Custom i18n implementation
 - **State Management**: React Context API
 - **Build Tools**: EAS Build
