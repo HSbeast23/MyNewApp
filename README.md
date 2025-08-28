@@ -7,15 +7,6 @@
   <p>A React Native Expo mobile application for blood donation management</p>
 </div>
 
-## 📱 App Screenshots
-
-<div align="center">
-  <img src="assets/slide1.png" alt="Screenshot 1" width="200"/>
-  <img src="assets/slide2.png" alt="Screenshot 2" width="200"/>
-  <img src="assets/slide3.png" alt="Screenshot 3" width="200"/>
-  <img src="assets/slide4.png" alt="Screenshot 4" width="200"/>
-</div>
-
 ## ✨ Features
 
 - **Blood Donation Requests:** Create and manage blood donation requests
@@ -173,5 +164,5 @@ For any questions or suggestions, please contact the project maintainer:
 ---
 
 <div align="center">
-  Made with ❤️ Haarhish
+  Made with ❤️ by Haarhish
 </div>

@@ -78,11 +78,10 @@ const ImageCarousel = ({
     };
   }, [currentIndex, slides.length, autoScrollInterval]);
 
-  // Handle image tap/click
+  // Handle image tap/click - opens URL directly without confirmation
   const handleImagePress = async (url, index) => {
     if (!url) {
-      Alert.alert('Error', 'No URL provided for this image');
-      return;
+      return; // Silently return if no URL
     }
     
     // Set loading state and pressed index for visual feedback
@@ -90,47 +89,21 @@ const ImageCarousel = ({
     setPressedIndex(index);
     
     // Log the URL being opened (for debugging)
-    console.log(`Attempting to open URL: ${url}`);
+    console.log(`Opening URL directly: ${url}`);
     
-    // Simplified approach: Try opening the URL directly
+    // Simply open the URL directly without confirmation
     try {
-      // For testing - display which URL is being opened
-      Alert.alert(
-        'Opening Website',
-        `Opening: ${url}`,
-        [
-          {
-            text: 'Cancel', 
-            style: 'cancel',
-            onPress: () => {
-              setIsLoading(false);
-              setPressedIndex(null);
-            }
-          },
-          {
-            text: 'Continue', 
-            onPress: async () => {
-              try {
-                await Linking.openURL(url);
-              } catch (err) {
-                console.error('Error in final URL open:', err);
-                Alert.alert('Error', 'Could not open the website. Please check your internet connection.');
-              } finally {
-                setIsLoading(false);
-                setPressedIndex(null);
-              }
-            }
-          }
-        ],
-        { cancelable: true }
-      );
+      await Linking.openURL(url);
     } catch (error) {
-      console.error('Error with link handling:', error);
+      console.error('Error opening URL:', error);
+      // Only show an error if something goes wrong
       Alert.alert(
-        'Error',
+        'Connection Error',
         'Could not open the website. Please check your internet connection.',
         [{ text: 'OK' }]
       );
+    } finally {
+      // Always reset loading state
       setIsLoading(false);
       setPressedIndex(null);
     }
@@ -159,9 +132,9 @@ const ImageCarousel = ({
             {showOverlay && item.title && (
               <View style={styles.overlay}>
                 <Text style={styles.title}>{item.title}</Text>
-                <Text style={styles.hint}>
-                  {isLoading && pressedIndex === index ? 'Opening...' : 'Tap to learn more'}
-                </Text>
+                {isLoading && pressedIndex === index && (
+                  <Text style={styles.hint}>Opening...</Text>
+                )}
               </View>
             )}
             
