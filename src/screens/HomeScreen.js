@@ -1,18 +1,34 @@
 import React, { useRef, useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, FlatList, Image, Dimensions, Alert } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Dimensions, Alert } from 'react-native';
 import { Ionicons, MaterialIcons, FontAwesome5, MaterialCommunityIcons } from '@expo/vector-icons';
 import { collection, query, where, onSnapshot, getDocs, getDoc, doc } from 'firebase/firestore';
 import { db, auth } from '../services/auth';
 import { useTranslation } from '../hooks/useTranslation';
-import { useFocusEffect } from '@react-navigation/native';
+import ImageCarousel from '../components/ImageCarousel';
 
 const { width } = Dimensions.get('window'); // ✅ Declare only once at the top!
 
-// Your slide data
+// Carousel slide data with URLs
+// CHANGE IMAGES AND URLs HERE
 const slides = [
-  { id: '1', image: require('../../assets/im1.webp') },
-  { id: '2', image: require('../../assets/im2.png') },
-  { id: '3', image: require('../../assets/im3.webp') },
+  { 
+    id: '1', 
+    image: require('../../assets/im1.webp'),
+    url: 'https://www.aabb.org/for-donors-patients/give-blood', // Blood donation information
+    title: 'Donate Blood'
+  },
+  { 
+    id: '2', 
+    image: require('../../assets/im2.png'),
+    url: 'https://www.who.int/campaigns/world-blood-donor-day', // World Blood Donor Day
+    title: 'Blood Awareness'
+  },
+  { 
+    id: '3', 
+    image: require('../../assets/im3.webp'),
+    url: 'https://www.nhs.uk/conditions/blood-transfusion/', // Blood transfusion info
+    title: 'Blood Facts'
+  },
 ];
 
 export default function HomeScreen({ navigation, route }) {
@@ -147,13 +163,7 @@ export default function HomeScreen({ navigation, route }) {
   }, [userProfile]);
 
   // Notification functionality removed for cleaner code
-  const viewableItemsChanged = useRef(({ viewableItems }) => {
-    if (viewableItems.length > 0) {
-      setCurrentIndex(viewableItems[0].index);
-    }
-  }).current;
-
-  const viewConfig = useRef({ viewAreaCoveragePercentThreshold: 50 }).current;
+  // No need for these carousel-related functions since they're now handled by the ImageCarousel component
 
   return (
     <View style={styles.wrapper}>
@@ -194,40 +204,14 @@ export default function HomeScreen({ navigation, route }) {
           </View>
         </View>
 
-        {/* ✅ Slider */}
+        {/* Enhanced Carousel with clickable images */}
         <View style={styles.posterContainer}>
-          <FlatList
-            data={slides}
-            renderItem={({ item }) => (
-              <View style={styles.slideContainer}>
-                <Image
-                  source={item.image}
-                  style={styles.slideImage}
-                />
-              </View>
-            )}
-            horizontal
-            pagingEnabled
-            showsHorizontalScrollIndicator={false}
-            bounces={false}
-            keyExtractor={(item) => item.id}
-            onViewableItemsChanged={viewableItemsChanged}
-            viewabilityConfig={viewConfig}
-            ref={slidesRef}
+          <ImageCarousel 
+            slides={slides}
+            autoScrollInterval={4000}
+            imageHeight={200}
+            style={styles.carousel}
           />
-
-          {/* Pagination dots */}
-          <View style={styles.pagination}>
-            {slides.map((_, index) => (
-              <View
-                key={index}
-                style={[
-                  styles.dot,
-                  currentIndex === index && styles.dotActive,
-                ]}
-              />
-            ))}
-          </View>
         </View>
 
         {/* Action icons */}
@@ -435,12 +419,34 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: 20,
+    position: 'relative', // For overlay positioning
   },
   slideImage: {
     width: width - 40,
     height: 200,
     borderRadius: 12,
     resizeMode: 'cover',
+  },
+  slideOverlay: {
+    position: 'absolute',
+    bottom: 0,
+    left: 20,
+    right: 20,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    padding: 10,
+    borderBottomLeftRadius: 12,
+    borderBottomRightRadius: 12,
+  },
+  slideTitle: {
+    color: '#fff',
+    fontSize: 16,
+    fontFamily: 'Poppins_600SemiBold',
+  },
+  slideTapHint: {
+    color: '#f0f0f0',
+    fontSize: 12,
+    fontFamily: 'Poppins_400Regular',
+    marginTop: 2,
   },
   iconWithBadge: {
     position: 'relative',
