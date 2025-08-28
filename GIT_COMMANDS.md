@@ -21,6 +21,7 @@ git push origin master
 1. Make sure your `.gitignore` file is correctly set up (already done)
 
 2. These files should NOT be pushed to GitHub:
+
    - `google-services.json` (Firebase configuration)
    - `serviceAccountKey.json` (Firebase Admin SDK credentials)
    - Any `.env` files with API keys or secrets
