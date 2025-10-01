@@ -55,6 +55,34 @@ A modern React Native & Expo mobile application connecting blood donors with rec
    npm install
    ```
 
+3. **Set up environment variables**
+
+   ```bash
+   # Copy the example environment file
+   cp .env.example .env
+   
+   # Edit .env and fill in your Firebase credentials
+   # Get these from Firebase Console > Project Settings > Web app
+   ```
+
+4. **Configure Firebase**
+   
+   - Download `google-services.json` from Firebase Console
+   - Place it in the project root
+   - See `SECURITY.md` for detailed security setup instructions
+
+5. **Start the development server**
+
+   ```bash
+   npm start
+   ```
+
+2. **Install dependencies**
+
+   ```bash
+   npm install
+   ```
+
 3. **Firebase Configuration** (Required)
 
    - Create a new Firebase project at [firebase.google.com](https://firebase.google.com)

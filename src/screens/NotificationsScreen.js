@@ -229,7 +229,13 @@ export default function NotificationsScreen() {
 
   // Listen for matching blood requests (for donors)
   useEffect(() => {
-    if (!userRole || userRole !== 'donor' || !userCity || !userBloodGroup) return;
+    if (!userRole || userRole !== 'donor' || !userCity || !userBloodGroup) {
+      setRequests([]);
+      setLoading(false);
+      return;
+    }
+    
+    setLoading(true);
     
     // Query for matching blood requests
     const q = query(
@@ -240,50 +246,59 @@ export default function NotificationsScreen() {
     );
     
     const unsubscribe = onSnapshot(q, (snapshot) => {
-      const matchedRequests = [];
-      let newCount = 0;
-      
-      snapshot.forEach(doc => {
-        const data = doc.data();
-        const seenBy = data.seenBy || [];
+      try {
+        const matchedRequests = [];
+        let newCount = 0;
         
-        // Check if this donor has already responded
-        const hasResponded = data.responses?.some(r => r.donorUid === auth.currentUser?.uid);
-        
-        if (!hasResponded) {
-          const isNew = !seenBy.includes(auth.currentUser?.uid);
+        snapshot.forEach(doc => {
+          const data = doc.data();
+          const seenBy = data.seenBy || [];
           
-          // Format required date/time
-          const formattedDate = formatDateTime(data.requiredDateTime) || 'As soon as possible';
+          // Check if this donor has already responded
+          const hasResponded = data.responses?.some(r => r.donorUid === auth.currentUser?.uid);
           
-          matchedRequests.push({
-            id: doc.id,
-            ...data,
-            formattedDate,
-            isNew,
-            isHighlighted: doc.id === route?.params?.highlightRequestId
-          });
-          
-          if (isNew) {
-            newCount++;
+          if (!hasResponded) {
+            const isNew = !seenBy.includes(auth.currentUser?.uid);
+            
+            // Format required date/time
+            const formattedDate = formatDateTime(data.requiredDateTime) || 'As soon as possible';
+            
+            matchedRequests.push({
+              id: doc.id,
+              ...data,
+              formattedDate,
+              isNew,
+              isHighlighted: doc.id === route?.params?.highlightRequestId
+            });
+            
+            if (isNew) {
+              newCount++;
+            }
           }
-        }
-      });
-      
-      // Sort by urgency (closest date first)
-      matchedRequests.sort((a, b) => {
-        if (!a.requiredDateTime && !b.requiredDateTime) return 0;
-        if (!a.requiredDateTime) return 1;
-        if (!b.requiredDateTime) return -1;
+        });
         
-        const aDate = a.requiredDateTime.toDate ? a.requiredDateTime.toDate() : new Date(a.requiredDateTime);
-        const bDate = b.requiredDateTime.toDate ? b.requiredDateTime.toDate() : new Date(b.requiredDateTime);
+        // Sort by urgency (closest date first)
+        matchedRequests.sort((a, b) => {
+          if (!a.requiredDateTime && !b.requiredDateTime) return 0;
+          if (!a.requiredDateTime) return 1;
+          if (!b.requiredDateTime) return -1;
+          
+          const aDate = a.requiredDateTime.toDate ? a.requiredDateTime.toDate() : new Date(a.requiredDateTime);
+          const bDate = b.requiredDateTime.toDate ? b.requiredDateTime.toDate() : new Date(b.requiredDateTime);
+          
+          return aDate - bDate;
+        });
         
-        return aDate - bDate;
-      });
-      
-      setRequests(matchedRequests);
-      setNewNotificationCount(newCount);
+        setRequests(matchedRequests);
+        setNewNotificationCount(newCount);
+      } catch (error) {
+        console.error('Error processing donor notifications:', error);
+      } finally {
+        setLoading(false);
+      }
+    }, (error) => {
+      console.error('Error listening to donor notifications:', error);
+      setLoading(false);
     });
     
     return () => unsubscribe();
@@ -291,7 +306,13 @@ export default function NotificationsScreen() {
 
   // Listen for donor responses (for receivers)
   useEffect(() => {
-    if (!userRole || userRole !== 'receiver' || !auth.currentUser?.uid) return;
+    if (!userRole || userRole !== 'receiver' || !auth.currentUser?.uid) {
+      setResponses([]);
+      setLoading(false);
+      return;
+    }
+    
+    setLoading(true);
     
     // Query for user's blood requests
     const q = query(
@@ -300,57 +321,66 @@ export default function NotificationsScreen() {
     );
     
     const unsubscribe = onSnapshot(q, (snapshot) => {
-      const allResponses = [];
-      let newCount = 0;
-      
-      snapshot.forEach(doc => {
-        const data = doc.data();
-        if (!data.responses || data.responses.length === 0) return;
+      try {
+        const allResponses = [];
+        let newCount = 0;
         
-        // Process each response
-        data.responses.forEach((response, index) => {
-          const formattedResponseTime = formatDateTime(response.respondedAt) || 'Recently';
-          const formattedRequiredTime = formatDateTime(data.requiredDateTime) || 'As soon as possible';
+        snapshot.forEach(doc => {
+          const data = doc.data();
+          if (!data.responses || data.responses.length === 0) return;
           
-          allResponses.push({
-            id: `${doc.id}_${index}`,
-            requestId: doc.id,
-            ...response,
-            formattedResponseTime,
-            requestData: {
-              purpose: data.purpose || 'Medical need',
-              bloodGroup: data.bloodGroup,
-              bloodUnits: data.bloodUnits || '1',
-              city: data.city,
-              hospital: data.hospital || '',
-              requiredDateTime: data.requiredDateTime,
-              formattedRequiredTime
-            },
-            isHighlighted: (
-              doc.id === route?.params?.highlightRequestId && 
-              response.donorName === route?.params?.donorName &&
-              response.status === route?.params?.status
-            )
+          // Process each response
+          data.responses.forEach((response, index) => {
+            const formattedResponseTime = formatDateTime(response.respondedAt) || 'Recently';
+            const formattedRequiredTime = formatDateTime(data.requiredDateTime) || 'As soon as possible';
+            
+            allResponses.push({
+              id: `${doc.id}_${index}`,
+              requestId: doc.id,
+              ...response,
+              formattedResponseTime,
+              requestData: {
+                purpose: data.purpose || 'Medical need',
+                bloodGroup: data.bloodGroup,
+                bloodUnits: data.bloodUnits || '1',
+                city: data.city,
+                hospital: data.hospital || '',
+                requiredDateTime: data.requiredDateTime,
+                formattedRequiredTime
+              },
+              isHighlighted: (
+                doc.id === route?.params?.highlightRequestId && 
+                response.donorName === route?.params?.donorName &&
+                response.status === route?.params?.status
+              )
+            });
+            
+            // Count unseen responses
+            if (!response.seenByReceiver) {
+              newCount++;
+            }
           });
-          
-          // Count unseen responses
-          if (!response.seenByReceiver) {
-            newCount++;
-          }
         });
-      });
-      
-      // Sort responses by time (newest first)
-      allResponses.sort((a, b) => {
-        const aTime = a.respondedAt?.toDate ? a.respondedAt.toDate() : 
-                    (a.respondedAt ? new Date(a.respondedAt) : new Date(0));
-        const bTime = b.respondedAt?.toDate ? b.respondedAt.toDate() : 
-                    (b.respondedAt ? new Date(b.respondedAt) : new Date(0));
-        return bTime - aTime;
-      });
-      
-      setResponses(allResponses);
-      setNewNotificationCount(newCount);
+        
+        // Sort responses by time (newest first)
+        allResponses.sort((a, b) => {
+          const aTime = a.respondedAt?.toDate ? a.respondedAt.toDate() : 
+                      (a.respondedAt ? new Date(a.respondedAt) : new Date(0));
+          const bTime = b.respondedAt?.toDate ? b.respondedAt.toDate() : 
+                      (b.respondedAt ? new Date(b.respondedAt) : new Date(0));
+          return bTime - aTime;
+        });
+        
+        setResponses(allResponses);
+        setNewNotificationCount(newCount);
+      } catch (error) {
+        console.error('Error processing receiver notifications:', error);
+      } finally {
+        setLoading(false);
+      }
+    }, (error) => {
+      console.error('Error listening to receiver notifications:', error);
+      setLoading(false);
     });
     
     return () => unsubscribe();
@@ -569,7 +599,12 @@ export default function NotificationsScreen() {
           )}
         </View>
         
-        {requests.length === 0 ? (
+        {loading ? (
+          <View style={styles.centerContainer}>
+            <ActivityIndicator size="large" color="#b71c1c" />
+            <Text style={styles.loadingText}>Loading notifications...</Text>
+          </View>
+        ) : requests.length === 0 ? (
           <View style={styles.emptyContainer}>
             <Ionicons name="water-outline" size={60} color="#999" />
             <Text style={styles.emptyText}>No matching blood requests found</Text>
@@ -679,6 +714,16 @@ export default function NotificationsScreen() {
               />
             }
             contentContainerStyle={styles.listContent}
+            removeClippedSubviews={true}
+            maxToRenderPerBatch={5}
+            updateCellsBatchingPeriod={50}
+            initialNumToRender={3}
+            windowSize={5}
+            getItemLayout={(data, index) => ({
+              length: 500,
+              offset: 500 * index,
+              index,
+            })}
           />
         )}
       </View>
@@ -697,7 +742,12 @@ export default function NotificationsScreen() {
         )}
       </View>
       
-      {responses.length === 0 ? (
+      {loading ? (
+        <View style={styles.centerContainer}>
+          <ActivityIndicator size="large" color="#b71c1c" />
+          <Text style={styles.loadingText}>Loading responses...</Text>
+        </View>
+      ) : responses.length === 0 ? (
         <View style={styles.emptyContainer}>
           <FontAwesome5 name="hand-holding-heart" size={60} color="#999" />
           <Text style={styles.emptyText}>No donor responses yet</Text>
@@ -805,6 +855,16 @@ export default function NotificationsScreen() {
             />
           }
           contentContainerStyle={styles.listContent}
+          removeClippedSubviews={true}
+          maxToRenderPerBatch={5}
+          updateCellsBatchingPeriod={50}
+          initialNumToRender={3}
+          windowSize={5}
+          getItemLayout={(data, index) => ({
+            length: 450,
+            offset: 450 * index,
+            index,
+          })}
         />
       )}
     </View>
