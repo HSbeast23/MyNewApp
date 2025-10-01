@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, FlatList, TouchableOpacity, Alert, ActivityIndicator, TextInput } from 'react-native';
 import { Card, Chip, Menu, Divider } from 'react-native-paper';
 import { db } from '../../services/auth';
-import { collection, getDocs, doc, updateDoc, query, where, deleteDoc } from 'firebase/firestore';
+import { collection, getDocs, doc, updateDoc, query, where, deleteDoc, onSnapshot } from 'firebase/firestore';
 import { Ionicons } from '@expo/vector-icons';
 
 const AdminUserManagementScreen = () => {
@@ -17,6 +17,18 @@ const AdminUserManagementScreen = () => {
 
   useEffect(() => {
     fetchUsers();
+    
+    // Setup real-time listener for users collection
+    const unsubscribe = onSnapshot(
+      collection(db, 'users'),
+      () => {
+        console.log('Users collection updated, refreshing list...');
+        fetchUsers();
+      },
+      (error) => console.error('Users listener error:', error)
+    );
+    
+    return () => unsubscribe();
   }, []);
 
   useEffect(() => {
@@ -26,6 +38,7 @@ const AdminUserManagementScreen = () => {
   const fetchUsers = async () => {
     try {
       setLoading(true);
+      console.log('Fetching users...');
       const usersCollection = collection(db, 'users');
       const usersSnapshot = await getDocs(usersCollection);
       
@@ -36,6 +49,7 @@ const AdminUserManagementScreen = () => {
         isActive: doc.data().isActive !== false, // default to true if not set
       }));
       
+      console.log('Users fetched:', usersList.length);
       setUsers(usersList);
     } catch (error) {
       console.error('Error fetching users:', error);

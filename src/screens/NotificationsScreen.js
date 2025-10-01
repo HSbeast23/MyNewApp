@@ -38,6 +38,7 @@ export default function NotificationsScreen() {
   const [newNotificationCount, setNewNotificationCount] = useState(0);
   const [refreshing, setRefreshing] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [initialLoadComplete, setInitialLoadComplete] = useState(false);
   
   // Function to handle phone calls
   const handlePhoneCall = (phoneNumber) => {
@@ -165,10 +166,13 @@ export default function NotificationsScreen() {
   // Get user details on component mount
   useEffect(() => {
     const fetchUserDetails = async () => {
+      console.log('Fetching user details...');
       setLoading(true);
       const currentUser = auth.currentUser;
       if (!currentUser) {
+        console.log('No current user found');
         setLoading(false);
+        setInitialLoadComplete(true);
         return;
       }
       
@@ -179,14 +183,17 @@ export default function NotificationsScreen() {
         
         if (userDoc.exists()) {
           const userData = userDoc.data();
+          console.log('User profile loaded:', userData.name, userData.bloodGroup, userData.city);
           setUserProfile(userData);
           setUserCity(userData.city || '');
           setUserBloodGroup(userData.bloodGroup || '');
           
           // Determine if user is donor or receiver based on most recent activity
           const isDonor = await checkUserIsDonor(currentUser.uid);
+          console.log('User role determined:', isDonor ? 'donor' : 'receiver');
           setUserRole(isDonor ? 'donor' : 'receiver');
         } else {
+          console.log('User document does not exist');
           setUserRole(null);
           setUserCity('');
           setUserBloodGroup('');
@@ -195,6 +202,7 @@ export default function NotificationsScreen() {
         console.error('Error fetching user details:', error);
       } finally {
         setLoading(false);
+        setInitialLoadComplete(true);
       }
     };
     
@@ -232,9 +240,11 @@ export default function NotificationsScreen() {
     if (!userRole || userRole !== 'donor' || !userCity || !userBloodGroup) {
       setRequests([]);
       setLoading(false);
+      console.log('Donor notifications disabled:', { userRole, userCity, userBloodGroup });
       return;
     }
     
+    console.log('Setting up donor notifications listener...', { userCity, userBloodGroup });
     setLoading(true);
     
     // Query for matching blood requests
@@ -247,6 +257,7 @@ export default function NotificationsScreen() {
     
     const unsubscribe = onSnapshot(q, (snapshot) => {
       try {
+        console.log('Donor notifications snapshot received, size:', snapshot.size);
         const matchedRequests = [];
         let newCount = 0;
         
@@ -276,6 +287,8 @@ export default function NotificationsScreen() {
             }
           }
         });
+        
+        console.log('Matched requests found:', matchedRequests.length, 'New:', newCount);
         
         // Sort by urgency (closest date first)
         matchedRequests.sort((a, b) => {
@@ -309,9 +322,11 @@ export default function NotificationsScreen() {
     if (!userRole || userRole !== 'receiver' || !auth.currentUser?.uid) {
       setResponses([]);
       setLoading(false);
+      console.log('Receiver notifications disabled:', { userRole, uid: auth.currentUser?.uid });
       return;
     }
     
+    console.log('Setting up receiver notifications listener...');
     setLoading(true);
     
     // Query for user's blood requests
@@ -322,11 +337,14 @@ export default function NotificationsScreen() {
     
     const unsubscribe = onSnapshot(q, (snapshot) => {
       try {
+        console.log('Receiver notifications snapshot received, size:', snapshot.size);
         const allResponses = [];
         let newCount = 0;
         
         snapshot.forEach(doc => {
           const data = doc.data();
+          console.log('Request document:', doc.id, 'has responses:', data.responses?.length || 0);
+          
           if (!data.responses || data.responses.length === 0) return;
           
           // Process each response
@@ -346,7 +364,8 @@ export default function NotificationsScreen() {
                 city: data.city,
                 hospital: data.hospital || '',
                 requiredDateTime: data.requiredDateTime,
-                formattedRequiredTime
+                formattedRequiredTime,
+                status: data.status || 'pending' // Add overall request status
               },
               isHighlighted: (
                 doc.id === route?.params?.highlightRequestId && 
@@ -361,6 +380,8 @@ export default function NotificationsScreen() {
             }
           });
         });
+        
+        console.log('Total responses found:', allResponses.length, 'Unseen:', newCount);
         
         // Sort responses by time (newest first)
         allResponses.sort((a, b) => {
@@ -560,8 +581,8 @@ export default function NotificationsScreen() {
     });
   };
 
-  // Loading state
-  if (loading || !fontsLoaded) {
+  // Loading state - only show on initial load
+  if ((loading && !initialLoadComplete) || !fontsLoaded) {
     return (
       <View style={styles.centerContainer}>
         <ActivityIndicator size="large" color="#b71c1c" />
@@ -714,16 +735,11 @@ export default function NotificationsScreen() {
               />
             }
             contentContainerStyle={styles.listContent}
-            removeClippedSubviews={true}
-            maxToRenderPerBatch={5}
-            updateCellsBatchingPeriod={50}
-            initialNumToRender={3}
-            windowSize={5}
-            getItemLayout={(data, index) => ({
-              length: 500,
-              offset: 500 * index,
-              index,
-            })}
+            removeClippedSubviews={false}
+            maxToRenderPerBatch={10}
+            updateCellsBatchingPeriod={100}
+            initialNumToRender={5}
+            windowSize={10}
           />
         )}
       </View>
@@ -761,6 +777,7 @@ export default function NotificationsScreen() {
             <View style={[
               styles.card,
               styles.responseCard,
+              item.requestData.status === 'completed' ? styles.completedCard :
               item.status === 'accepted' ? styles.acceptedCard : styles.declinedCard,
               item.isHighlighted && styles.highlightedCard,
               !item.seenByReceiver && styles.newCard
@@ -768,10 +785,12 @@ export default function NotificationsScreen() {
               <View style={styles.responseHeader}>
                 <View style={[
                   styles.statusBadge,
+                  item.requestData.status === 'completed' ? styles.completedBadge :
                   item.status === 'accepted' ? styles.acceptedBadge : styles.declinedBadge
                 ]}>
                   <Text style={styles.statusText}>
-                    {item.status === 'accepted' ? 'ACCEPTED' : 'DECLINED'}
+                    {item.requestData.status === 'completed' ? 'COMPLETED' :
+                     item.status === 'accepted' ? 'ACCEPTED' : 'DECLINED'}
                   </Text>
                 </View>
                 
@@ -836,7 +855,7 @@ export default function NotificationsScreen() {
                 </Text>
               </View>
               
-              {item.status === 'accepted' && item.donorMobile && (
+              {item.status === 'accepted' && item.donorMobile && item.requestData.status !== 'completed' && (
                 <TouchableOpacity 
                   style={styles.callButton}
                   onPress={() => handlePhoneCall(item.donorMobile)}
@@ -844,6 +863,12 @@ export default function NotificationsScreen() {
                   <Ionicons name="call" size={16} color="#fff" />
                   <Text style={styles.callButtonText}>Call Donor</Text>
                 </TouchableOpacity>
+              )}
+              {item.requestData.status === 'completed' && (
+                <View style={styles.completedNotice}>
+                  <Ionicons name="checkmark-circle" size={20} color="#2e7d32" />
+                  <Text style={styles.completedNoticeText}>Blood donation completed successfully!</Text>
+                </View>
               )}
             </View>
           )}
@@ -855,16 +880,11 @@ export default function NotificationsScreen() {
             />
           }
           contentContainerStyle={styles.listContent}
-          removeClippedSubviews={true}
-          maxToRenderPerBatch={5}
-          updateCellsBatchingPeriod={50}
-          initialNumToRender={3}
-          windowSize={5}
-          getItemLayout={(data, index) => ({
-            length: 450,
-            offset: 450 * index,
-            index,
-          })}
+          removeClippedSubviews={false}
+          maxToRenderPerBatch={10}
+          updateCellsBatchingPeriod={100}
+          initialNumToRender={5}
+          windowSize={10}
         />
       )}
     </View>
@@ -912,6 +932,7 @@ const styles = StyleSheet.create({
   },
   listContent: {
     padding: 16,
+    paddingBottom: 100,
   },
   card: {
     backgroundColor: '#fff',
@@ -922,7 +943,8 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
-    elevation: 2,
+    elevation: 3,
+    minHeight: 100,
   },
   requestCard: {
     borderLeftWidth: 4,
@@ -933,6 +955,10 @@ const styles = StyleSheet.create({
   },
   acceptedCard: {
     borderLeftColor: '#4caf50',
+  },
+  completedCard: {
+    borderLeftColor: '#2e7d32',
+    backgroundColor: '#f1f8f4',
   },
   declinedCard: {
     borderLeftColor: '#f44336',
@@ -1058,6 +1084,9 @@ const styles = StyleSheet.create({
   acceptedBadge: {
     backgroundColor: '#e8f5e9',
   },
+  completedBadge: {
+    backgroundColor: '#c8e6c9',
+  },
   declinedBadge: {
     backgroundColor: '#ffebee',
   },
@@ -1129,6 +1158,19 @@ const styles = StyleSheet.create({
     fontFamily: 'Poppins_600SemiBold',
     fontSize: 14,
     color: '#fff',
+  },
+  completedNotice: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#e8f5e9',
+    padding: 12,
+    gap: 8,
+  },
+  completedNoticeText: {
+    fontFamily: 'Poppins_600SemiBold',
+    fontSize: 14,
+    color: '#2e7d32',
   },
   emptyContainer: {
     flex: 1,

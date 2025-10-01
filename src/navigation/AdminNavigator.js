@@ -18,6 +18,8 @@ import { Ionicons, MaterialIcons, Feather, FontAwesome5 } from '@expo/vector-ico
 import AdminDashboardScreen from '../screens/admin/AdminDashboardScreen';
 import AdminAnalyticsScreen from '../screens/admin/AdminAnalyticsScreen';
 import AdminUserManagementScreen from '../screens/admin/AdminUserManagementScreen';
+import AdminMatchedPairsScreen from '../screens/admin/AdminMatchedPairsScreen';
+import AdminNotificationsScreen from '../screens/admin/AdminNotificationsScreen';
 import LogoutScreen from '../screens/LogoutScreen';
 
 const Drawer = createDrawerNavigator();
@@ -62,10 +64,11 @@ export default function AdminNavigator() {
         }}
       />
       <Drawer.Screen 
-        name="Analytics" 
-        component={AdminAnalyticsScreen} 
+        name="MatchedPairs" 
+        component={AdminMatchedPairsScreen} 
         options={{
-          title: 'Analytics',
+          title: 'Matched Pairs',
+          drawerLabel: 'Matched Pairs',
         }}
       />
       <Drawer.Screen 
@@ -73,6 +76,22 @@ export default function AdminNavigator() {
         component={AdminUserManagementScreen} 
         options={{
           title: 'User Management',
+          drawerLabel: 'User Management',
+        }}
+      />
+      <Drawer.Screen 
+        name="Notifications" 
+        component={AdminNotificationsScreen} 
+        options={{
+          title: 'Notifications',
+          drawerLabel: 'Notifications',
+        }}
+      />
+      <Drawer.Screen 
+        name="Analytics" 
+        component={AdminAnalyticsScreen} 
+        options={{
+          title: 'Analytics',
         }}
       />
       <Drawer.Screen 
@@ -113,18 +132,6 @@ function AdminDrawerContent(props) {
             />
           ))}
         </View>
-        
-        <TouchableOpacity 
-          style={styles.backButton}
-          onPress={() => {
-            // Go back to the main app by navigating to MainDrawer
-            // This requires navigating up to the root navigator first
-            props.navigation.getParent()?.navigate('MainDrawer');
-          }}
-        >
-          <Ionicons name="arrow-back-outline" size={20} color="#fff" />
-          <Text style={styles.backButtonText}>Back to App</Text>
-        </TouchableOpacity>
       </DrawerContentScrollView>
     </View>
   );
@@ -134,8 +141,10 @@ function AdminDrawerContent(props) {
 function getAdminIcon(name, color, size) {
   switch (name) {
     case 'Dashboard': return <MaterialIcons name="dashboard" size={size} color={color} />;
-    case 'Analytics': return <Ionicons name="analytics-outline" size={size} color={color} />;
+    case 'MatchedPairs': return <MaterialIcons name="link" size={size} color={color} />;
     case 'UserManagement': return <Ionicons name="people" size={size} color={color} />;
+    case 'Notifications': return <Ionicons name="notifications" size={size} color={color} />;
+    case 'Analytics': return <Ionicons name="analytics-outline" size={size} color={color} />;
     case 'Logout': return <Feather name="log-out" size={size} color={color} />;
     default: return null;
   }
@@ -189,20 +198,5 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     justifyContent: 'center',
     alignItems: 'center',
-  },
-  backButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(0,0,0,0.2)',
-    padding: 15,
-    marginHorizontal: 20,
-    marginBottom: 20,
-    borderRadius: 10,
-  },
-  backButtonText: {
-    color: '#fff',
-    marginLeft: 10,
-    fontSize: 14,
-    fontWeight: '500',
   },
 });

@@ -60,13 +60,13 @@ A modern React Native & Expo mobile application connecting blood donors with rec
    ```bash
    # Copy the example environment file
    cp .env.example .env
-   
+
    # Edit .env and fill in your Firebase credentials
    # Get these from Firebase Console > Project Settings > Web app
    ```
 
 4. **Configure Firebase**
-   
+
    - Download `google-services.json` from Firebase Console
    - Place it in the project root
    - See `SECURITY.md` for detailed security setup instructions
@@ -77,13 +77,13 @@ A modern React Native & Expo mobile application connecting blood donors with rec
    npm start
    ```
 
-2. **Install dependencies**
+6. **Install dependencies**
 
    ```bash
    npm install
    ```
 
-3. **Firebase Configuration** (Required)
+7. **Firebase Configuration** (Required)
 
    - Create a new Firebase project at [firebase.google.com](https://firebase.google.com)
    - Set up Authentication, Firestore, and Cloud Messaging
@@ -93,13 +93,13 @@ A modern React Native & Expo mobile application connecting blood donors with rec
 
    > ⚠️ **Security Note**: Never commit Firebase configuration files to Git!
 
-4. **Start the development server**
+8. **Start the development server**
 
    ```bash
    npx expo start
    ```
 
-5. **Run on a device**
+9. **Run on a device**
    - Scan the QR code with Expo Go (Android) or Camera app (iOS)
    - Or press `a` to run on Android emulator / `i` for iOS simulator
 
