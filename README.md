@@ -68,12 +68,31 @@ BloodLink empowers hospitals, administrators, and volunteers to collaborate arou
 
 ---
 
+## 📲 User Journey Gallery
+
+<div align="center">
+   <img src="./assets/Readme-img/WhatsApp%20Image%202025-10-04%20at%2000.13.53_181995f2.jpg" alt="Secure email login screen" width="30%" />
+   <img src="./assets/Readme-img/WhatsApp%20Image%202025-10-04%20at%2000.13.53_b58770ac.jpg" alt="Personalized donor discovery cards" width="30%" />
+   <img src="./assets/Readme-img/WhatsApp%20Image%202025-10-04%20at%2000.13.53_ee86ca83.jpg" alt="Urgent request creation form" width="30%" />
+</div>
+
+- **Simple onboarding:** Email-first authentication keeps sign-in frictionless for donors and receivers.
+- **Guided discovery:** Curated donor cards surface compatibility details and quick actions.
+- **Streamlined requests:** Rich forms capture urgency, hospital, and blood group metadata in seconds.
+
+---
+
 ## 🧭 Admin Dashboard Highlights
 
-<p align="center">
+<div align="center">
    <img src="./assets/Readme-img/WhatsApp%20Image%202025-10-04%20at%2000.28.07_7e00ee81.jpg" alt="Admin dashboard overview" width="45%" />
    <img src="./assets/Readme-img/WhatsApp%20Image%202025-10-04%20at%2000.28.08_7ae9264f.jpg" alt="Admin analytics insights" width="45%" />
-</p>
+</div>
+
+<div align="center">
+   <img src="./assets/Readme-img/WhatsApp%20Image%202025-10-04%20at%2000.28.07_9e4aa1ca.jpg" alt="Admin donor management table" width="45%" />
+   <img src="./assets/Readme-img/WhatsApp%20Image%202025-10-04%20at%2000.28.08_83d538c5.jpg" alt="Moderation actions for pending requests" width="45%" />
+</div>
 
 - **Unified control center:** Quickly approve blood requests, monitor donor availability, and track matched cases in a consolidated view.
 - **Actionable analytics:** Real-time charts surface donation trends, high-demand blood groups, and pending verifications to guide operational decisions.
