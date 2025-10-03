@@ -6,23 +6,31 @@ import { doc, setDoc, getDoc } from 'firebase/firestore';
 import { Ionicons } from '@expo/vector-icons';
 
 const AdminSetup = ({ navigation }) => {
-  const [email, setEmail] = useState('admin@bloodlink.com');
-  const [password, setPassword] = useState('admin123');
-  const [confirmPassword, setConfirmPassword] = useState('admin123');
+  const defaultAdminEmail = process.env.EXPO_PUBLIC_ADMIN_EMAIL || '';
+  const defaultAdminPassword = process.env.EXPO_PUBLIC_ADMIN_PASSWORD || '';
+
+  const [email, setEmail] = useState(defaultAdminEmail);
+  const [password, setPassword] = useState(defaultAdminPassword);
+  const [confirmPassword, setConfirmPassword] = useState(defaultAdminPassword);
   const [name, setName] = useState('Admin User');
   const [loading, setLoading] = useState(false);
   const [checkingAdmin, setCheckingAdmin] = useState(true);
   const [showPassword, setShowPassword] = useState(false);
 
-  // Default admin credentials - these will be used if no admin exists
-  const defaultAdminEmail = 'admin@bloodlink.com';
-  const defaultAdminPassword = 'admin123';
+  // Default admin credentials are sourced from environment variables for security
+  const canBootstrapAdmin = Boolean(defaultAdminEmail && defaultAdminPassword);
 
   useEffect(() => {
     checkIfAdminExists();
   }, []);
 
   const checkIfAdminExists = async () => {
+    if (!canBootstrapAdmin) {
+      console.warn('Admin bootstrap credentials are not set. Define EXPO_PUBLIC_ADMIN_EMAIL and EXPO_PUBLIC_ADMIN_PASSWORD in your .env file.');
+      setCheckingAdmin(false);
+      return;
+    }
+
     try {
       // Try to sign in with default admin credentials
       await signInWithEmailAndPassword(auth, defaultAdminEmail, defaultAdminPassword);
@@ -58,7 +66,7 @@ const AdminSetup = ({ navigation }) => {
     }
 
     // Special case for default admin password which is shorter than 6 chars
-    if (password !== 'admin123' && password.length < 6) {
+    if (password.length < 6) {
       Alert.alert('Error', 'Password should be at least 6 characters long');
       return;
     }
