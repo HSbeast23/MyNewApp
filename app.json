@@ -38,20 +38,7 @@
     },
     "web": {
       "favicon": "./assets/favicon.png"
-    },
-    "plugins": [
-      "expo-font",
-      "expo-web-browser",
-      [
-        "expo-notifications",
-        {
-          "icon": "./assets/icon.jpg",
-          "color": "#b71c1c",
-          "defaultChannel": "default",
-          "sounds": []
-        }
-      ],
-      "expo-build-properties"
-    ]
+    }
+    
   }
 }

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -12,7 +12,7 @@ import {
   Platform
 } from 'react-native';
 import { MaterialIcons, FontAwesome5, Ionicons } from '@expo/vector-icons';
-import { collection, query, where, onSnapshot, updateDoc, doc, getDoc, getDocs, orderBy, serverTimestamp, arrayUnion } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, updateDoc, doc, getDoc, getDocs, serverTimestamp, arrayUnion } from 'firebase/firestore';
 import { db, auth } from '../services/auth';
 import { useTranslation } from '../hooks/useTranslation';
 import { useNavigation, useRoute, useFocusEffect } from '@react-navigation/native';
@@ -39,6 +39,7 @@ export default function NotificationsScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [loading, setLoading] = useState(true);
   const [initialLoadComplete, setInitialLoadComplete] = useState(false);
+  const lastSeenMarkTime = useRef(0);
   
   // Function to handle phone calls
   const handlePhoneCall = (phoneNumber) => {
@@ -77,7 +78,9 @@ export default function NotificationsScreen() {
   // Mark all notifications as seen when screen comes into focus
   useFocusEffect(
     useCallback(() => {
-      console.log('Screen focused, refreshing data...');
+      if (__DEV__) {
+        console.log('Screen focused, refreshing data...');
+      }
       if (userRole && auth.currentUser?.uid) {
         markAllAsSeen();
         
@@ -91,8 +94,18 @@ export default function NotificationsScreen() {
     }, [userRole, userCity, userBloodGroup, auth.currentUser?.uid])
   );
 
-  // Function to mark all notifications as seen
+  // Function to mark all notifications as seen (with debouncing)
   const markAllAsSeen = async () => {
+    // Debounce: only run if at least 3 seconds have passed since last call
+    const now = Date.now();
+    if (now - lastSeenMarkTime.current < 3000) {
+      if (__DEV__) {
+        console.log('markAllAsSeen debounced, skipping...');
+      }
+      return;
+    }
+    lastSeenMarkTime.current = now;
+    
     try {
       if (userRole === 'donor') {
         // For donors: mark blood requests as seen
@@ -123,7 +136,9 @@ export default function NotificationsScreen() {
         
         if (updatePromises.length > 0) {
           await Promise.all(updatePromises);
-          console.log(`Marked ${updatePromises.length} requests as seen`);
+          if (__DEV__) {
+            console.log(`Marked ${updatePromises.length} requests as seen`);
+          }
         }
       } else if (userRole === 'receiver') {
         // For receivers: mark all responses as seen
@@ -160,7 +175,9 @@ export default function NotificationsScreen() {
         
         if (updatePromises.length > 0) {
           await Promise.all(updatePromises);
-          console.log(`Updated ${updatePromises.length} requests with seen responses`);
+          if (__DEV__) {
+            console.log(`Updated ${updatePromises.length} requests with seen responses`);
+          }
         }
       }
       
@@ -174,11 +191,15 @@ export default function NotificationsScreen() {
   // Get user details on component mount
   useEffect(() => {
     const fetchUserDetails = async () => {
-      console.log('Fetching user details...');
+      if (__DEV__) {
+        console.log('Fetching user details...');
+      }
       setLoading(true);
       const currentUser = auth.currentUser;
       if (!currentUser) {
-        console.log('No current user found');
+        if (__DEV__) {
+          console.log('No current user found');
+        }
         setLoading(false);
         setInitialLoadComplete(true);
         return;
@@ -191,17 +212,23 @@ export default function NotificationsScreen() {
         
         if (userDoc.exists()) {
           const userData = userDoc.data();
-          console.log('User profile loaded:', userData.name, userData.bloodGroup, userData.city);
+          if (__DEV__) {
+            console.log('User profile loaded:', userData.name, userData.bloodGroup, userData.city);
+          }
           setUserProfile(userData);
           setUserCity(userData.city || '');
           setUserBloodGroup(userData.bloodGroup || '');
           
           // Determine if user is donor or receiver based on most recent activity
           const isDonor = await checkUserIsDonor(currentUser.uid);
-          console.log('User role determined:', isDonor ? 'donor' : 'receiver');
+          if (__DEV__) {
+            console.log('User role determined:', isDonor ? 'donor' : 'receiver');
+          }
           setUserRole(isDonor ? 'donor' : 'receiver');
         } else {
-          console.log('User document does not exist');
+          if (__DEV__) {
+            console.log('User document does not exist');
+          }
           setUserRole(null);
           setUserCity('');
           setUserBloodGroup('');
@@ -248,11 +275,15 @@ export default function NotificationsScreen() {
     if (!userRole || userRole !== 'donor' || !userCity || !userBloodGroup || !auth.currentUser?.uid) {
       setRequests([]);
       setLoading(false);
-      console.log('Donor notifications disabled:', { userRole, userCity, userBloodGroup, uid: auth.currentUser?.uid });
+      if (__DEV__) {
+        console.log('Donor notifications disabled:', { userRole, userCity, userBloodGroup, uid: auth.currentUser?.uid });
+      }
       return;
     }
     
-    console.log('Setting up donor notifications listener for user:', auth.currentUser.uid, { userCity, userBloodGroup });
+    if (__DEV__) {
+      console.log('Setting up donor notifications listener for user:', auth.currentUser.uid, { userCity, userBloodGroup });
+    }
     setLoading(true);
     
     // Query for matching blood requests
@@ -260,13 +291,14 @@ export default function NotificationsScreen() {
       collection(db, 'Bloodreceiver'),
       where('bloodGroup', '==', userBloodGroup),
       where('city', '==', userCity),
-      where('status', '==', 'pending'),
-      orderBy('createdAt', 'desc')
+      where('status', '==', 'pending')
     );
     
     const unsubscribe = onSnapshot(q, (snapshot) => {
       try {
-        console.log('Donor notifications snapshot received, size:', snapshot.size);
+        if (__DEV__) {
+          console.log('Donor notifications snapshot received, size:', snapshot.size);
+        }
         const matchedRequests = [];
         let newCount = 0;
         
@@ -283,9 +315,22 @@ export default function NotificationsScreen() {
             // Format required date/time
             const formattedDate = formatDateTime(data.requiredDateTime) || 'As soon as possible';
             
+            // Ensure all required fields have default values to prevent blank cards
             matchedRequests.push({
               id: doc.id,
-              ...data,
+              name: data.name || 'Anonymous Patient',
+              bloodGroup: data.bloodGroup || 'Unknown',
+              bloodUnits: data.bloodUnits || '1',
+              city: data.city || 'Not specified',
+              purpose: data.purpose || 'Medical need',
+              hospital: data.hospital || '',
+              mobile: data.mobile || '',
+              requiredDateTime: data.requiredDateTime || null,
+              createdAt: data.createdAt || null,
+              status: data.status || 'pending',
+              uid: data.uid || '',
+              responses: data.responses || [],
+              seenBy: seenBy,
               formattedDate,
               isNew,
               isHighlighted: doc.id === route?.params?.highlightRequestId
@@ -297,7 +342,9 @@ export default function NotificationsScreen() {
           }
         });
         
-        console.log('Matched requests found:', matchedRequests.length, 'New:', newCount);
+        if (__DEV__) {
+          console.log('Matched requests found:', matchedRequests.length, 'New:', newCount);
+        }
         
         // Sort by urgency (closest date first)
         matchedRequests.sort((a, b) => {
@@ -331,29 +378,36 @@ export default function NotificationsScreen() {
     if (!userRole || userRole !== 'receiver' || !auth.currentUser?.uid) {
       setResponses([]);
       setLoading(false);
-      console.log('Receiver notifications disabled:', { userRole, uid: auth.currentUser?.uid });
+      if (__DEV__) {
+        console.log('Receiver notifications disabled:', { userRole, uid: auth.currentUser?.uid });
+      }
       return;
     }
     
-    console.log('Setting up receiver notifications listener for user:', auth.currentUser.uid);
+    if (__DEV__) {
+      console.log('Setting up receiver notifications listener for user:', auth.currentUser.uid);
+    }
     setLoading(true);
     
     // Query for user's blood requests
     const q = query(
       collection(db, 'Bloodreceiver'),
-      where('uid', '==', auth.currentUser.uid),
-      orderBy('createdAt', 'desc')
+      where('uid', '==', auth.currentUser.uid)
     );
     
     const unsubscribe = onSnapshot(q, (snapshot) => {
       try {
-        console.log('Receiver notifications snapshot received, size:', snapshot.size);
+        if (__DEV__) {
+          console.log('Receiver notifications snapshot received, size:', snapshot.size);
+        }
         const allResponses = [];
         let newCount = 0;
         
         snapshot.forEach(doc => {
           const data = doc.data();
-          console.log('Request document:', doc.id, 'has responses:', data.responses?.length || 0);
+          if (__DEV__) {
+            console.log('Request document:', doc.id, 'has responses:', data.responses?.length || 0);
+          }
           
           if (!data.responses || data.responses.length === 0) return;
           
@@ -364,7 +418,9 @@ export default function NotificationsScreen() {
           data.responses.forEach((response, index) => {
             // Skip duplicate responses from same donor
             if (response.donorUid && seenDonors.has(response.donorUid)) {
-              console.log('Skipping duplicate response from donor:', response.donorUid);
+              if (__DEV__) {
+                console.log('Skipping duplicate response from donor:', response.donorUid);
+              }
               return;
             }
             if (response.donorUid) {
@@ -412,18 +468,22 @@ export default function NotificationsScreen() {
             
             // Debug log for first response
             if (allResponses.length === 1) {
-              console.log('First response item:', {
-                donorName: responseItem.donorName,
-                donorMobile: responseItem.donorMobile,
-                donorBloodGroup: responseItem.donorBloodGroup,
-                bloodGroup: responseItem.requestData?.bloodGroup,
-                city: responseItem.requestData?.city
-              });
+              if (__DEV__) {
+                console.log('First response item:', {
+                  donorName: responseItem.donorName,
+                  donorMobile: responseItem.donorMobile,
+                  donorBloodGroup: responseItem.donorBloodGroup,
+                  bloodGroup: responseItem.requestData?.bloodGroup,
+                  city: responseItem.requestData?.city
+                });
+              }
             }
           });
         });
         
-        console.log('Total responses found:', allResponses.length, 'Unseen:', newCount);
+        if (__DEV__) {
+          console.log('Total responses found:', allResponses.length, 'Unseen:', newCount);
+        }
         
         // Sort responses by time (newest first)
         allResponses.sort((a, b) => {

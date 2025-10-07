@@ -50,7 +50,9 @@ export default function App() {
       try {
         images.push(require('./assets/adaptive-icon.jpg'));
       } catch (e) {
-        console.log('Adaptive icon not found, skipping preload');
+        if (__DEV__) {
+          console.log('Adaptive icon not found, skipping preload');
+        }
       }
       
       // Preload images
@@ -63,27 +65,22 @@ export default function App() {
         // Just require the file to verify it exists
         const lottieAnimation = require('./assets/animations/blood_splash.json');
         lottieFileExists = true;
-        console.log('Lottie animation file found');
+        if (__DEV__) {
+          console.log('Lottie animation file found');
+        }
       } catch (e) {
         console.warn('Lottie animation file not found:', e);
       }
       
       await Promise.all([...imageAssets]);
-      console.log('Assets preloaded successfully');
+      if (__DEV__) {
+        console.log('Assets preloaded successfully');
+      }
       return true;
     } catch (e) {
       console.warn('Error preloading assets:', e);
       return true; // Return true anyway to avoid blocking the app
     }
-  }, []);
-
-  // Set up authentication state listener
-  useEffect(() => {
-    const unsubscribe = auth.onAuthStateChanged(async (user) => {
-      // User authentication handled - no push notifications needed
-    });
-    
-    return () => unsubscribe();
   }, []);
 
   // When fonts loaded, set app ready and hide splash
@@ -95,7 +92,9 @@ export default function App() {
         
         // Wait for fonts to load with a timeout
         if (fontsLoaded) {
-          console.log('Fonts loaded successfully');
+          if (__DEV__) {
+            console.log('Fonts loaded successfully');
+          }
           // Add a small delay to ensure all resources are loaded
           await new Promise(resolve => setTimeout(resolve, 200));
           setAppIsReady(true);
@@ -107,7 +106,9 @@ export default function App() {
         } else {
           // Ensure we don't get stuck if fonts fail to load
           setTimeout(() => {
-            console.log('Fallback timer for font loading triggered');
+            if (__DEV__) {
+              console.log('Fallback timer for font loading triggered');
+            }
             setAppIsReady(true);
           }, 3000); // Fallback after 3 seconds
         }
@@ -116,7 +117,9 @@ export default function App() {
     
     // Set ultimate fallback timer to prevent being stuck on splash screen
     const fallbackTimer = setTimeout(() => {
-      console.log('Ultimate fallback timer triggered');
+      if (__DEV__) {
+        console.log('Ultimate fallback timer triggered');
+      }
       setAppIsReady(true);
     }, 8000);
     

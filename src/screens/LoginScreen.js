@@ -49,7 +49,9 @@ export default function LoginScreen({ navigation }) {
       const userDoc = await getDoc(doc(db, 'users', user.uid));
       const userData = userDoc.data();
       
-      console.log('Login successful!');
+      if (__DEV__) {
+        console.log('Login successful!');
+      }
       
       // Navigate to the appropriate screen based on user role
       if (userData && userData.isAdmin) {
@@ -58,7 +60,9 @@ export default function LoginScreen({ navigation }) {
         navigation.replace('MainDrawer');
       }
     } catch (error) {
-      console.log(error);
+      if (__DEV__) {
+        console.log(error);
+      }
       Alert.alert('Login Failed', error.message);
     } finally {
       setLoading(false);

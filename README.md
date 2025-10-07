@@ -52,7 +52,7 @@ BloodLink empowers hospitals, administrators, and volunteers to collaborate arou
 | Layer            | Tooling                                                                    |
 | ---------------- | -------------------------------------------------------------------------- |
 | Mobile runtime   | React Native (Expo), React Navigation, React Native Paper                  |
-| State & Context  | React Context API, custom hooks, AsyncStorage for persistence             |
+| State & Context  | React Context API, custom hooks, AsyncStorage for persistence              |
 | Backend services | Firebase Authentication, Cloud Firestore with real-time listeners          |
 | CI/CD & Build    | EAS Build, Expo Application Services, npm scripts                          |
 | Quality & UX     | Lottie animations, reusable UI components, adaptive splash and icon assets |

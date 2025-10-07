@@ -88,7 +88,9 @@ export default function HomeScreen({ navigation, route }) {
           }
         }
       } catch (error) {
-        console.log('Error fetching user data:', error);
+        if (__DEV__) {
+          console.log('Error fetching user data:', error);
+        }
       }
     };
 
@@ -153,7 +155,9 @@ export default function HomeScreen({ navigation, route }) {
           });
         }
       } catch (error) {
-        console.log('Error setting up notification listener:', error);
+        if (__DEV__) {
+          console.log('Error setting up notification listener:', error);
+        }
       }
     };
 
