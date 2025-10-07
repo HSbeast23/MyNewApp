@@ -77,10 +77,18 @@ export default function NotificationsScreen() {
   // Mark all notifications as seen when screen comes into focus
   useFocusEffect(
     useCallback(() => {
+      console.log('Screen focused, refreshing data...');
       if (userRole && auth.currentUser?.uid) {
         markAllAsSeen();
+        
+        // Force a state refresh to ensure latest data is displayed
+        if (userRole === 'receiver') {
+          // Trigger a re-fetch by briefly toggling loading
+          setLoading(true);
+          setTimeout(() => setLoading(false), 100);
+        }
       }
-    }, [userRole, userCity, userBloodGroup])
+    }, [userRole, userCity, userBloodGroup, auth.currentUser?.uid])
   );
 
   // Function to mark all notifications as seen
@@ -237,14 +245,14 @@ export default function NotificationsScreen() {
 
   // Listen for matching blood requests (for donors)
   useEffect(() => {
-    if (!userRole || userRole !== 'donor' || !userCity || !userBloodGroup) {
+    if (!userRole || userRole !== 'donor' || !userCity || !userBloodGroup || !auth.currentUser?.uid) {
       setRequests([]);
       setLoading(false);
-      console.log('Donor notifications disabled:', { userRole, userCity, userBloodGroup });
+      console.log('Donor notifications disabled:', { userRole, userCity, userBloodGroup, uid: auth.currentUser?.uid });
       return;
     }
     
-    console.log('Setting up donor notifications listener...', { userCity, userBloodGroup });
+    console.log('Setting up donor notifications listener for user:', auth.currentUser.uid, { userCity, userBloodGroup });
     setLoading(true);
     
     // Query for matching blood requests
@@ -252,7 +260,8 @@ export default function NotificationsScreen() {
       collection(db, 'Bloodreceiver'),
       where('bloodGroup', '==', userBloodGroup),
       where('city', '==', userCity),
-      where('status', '==', 'pending')
+      where('status', '==', 'pending'),
+      orderBy('createdAt', 'desc')
     );
     
     const unsubscribe = onSnapshot(q, (snapshot) => {
@@ -315,7 +324,7 @@ export default function NotificationsScreen() {
     });
     
     return () => unsubscribe();
-  }, [userRole, userCity, userBloodGroup]);
+  }, [userRole, userCity, userBloodGroup, auth.currentUser?.uid, route?.params]);
 
   // Listen for donor responses (for receivers)
   useEffect(() => {
@@ -326,13 +335,14 @@ export default function NotificationsScreen() {
       return;
     }
     
-    console.log('Setting up receiver notifications listener...');
+    console.log('Setting up receiver notifications listener for user:', auth.currentUser.uid);
     setLoading(true);
     
     // Query for user's blood requests
     const q = query(
       collection(db, 'Bloodreceiver'),
-      where('uid', '==', auth.currentUser.uid)
+      where('uid', '==', auth.currentUser.uid),
+      orderBy('createdAt', 'desc')
     );
     
     const unsubscribe = onSnapshot(q, (snapshot) => {
@@ -347,36 +357,68 @@ export default function NotificationsScreen() {
           
           if (!data.responses || data.responses.length === 0) return;
           
+          // Track unique donors to prevent duplicates
+          const seenDonors = new Set();
+          
           // Process each response
           data.responses.forEach((response, index) => {
+            // Skip duplicate responses from same donor
+            if (response.donorUid && seenDonors.has(response.donorUid)) {
+              console.log('Skipping duplicate response from donor:', response.donorUid);
+              return;
+            }
+            if (response.donorUid) {
+              seenDonors.add(response.donorUid);
+            }
             const formattedResponseTime = formatDateTime(response.respondedAt) || 'Recently';
             const formattedRequiredTime = formatDateTime(data.requiredDateTime) || 'As soon as possible';
             
-            allResponses.push({
+            // Ensure all required fields have default values
+            const responseItem = {
               id: `${doc.id}_${index}`,
               requestId: doc.id,
-              ...response,
+              donorUid: response.donorUid || '',
+              donorName: response.donorName || 'Anonymous Donor',
+              donorMobile: response.donorMobile || '',
+              donorBloodGroup: response.donorBloodGroup || data.bloodGroup || '',
+              donorCity: response.donorCity || data.city || '',
+              status: response.status || 'pending',
+              respondedAt: response.respondedAt,
+              seenByReceiver: response.seenByReceiver || false,
               formattedResponseTime,
               requestData: {
                 purpose: data.purpose || 'Medical need',
-                bloodGroup: data.bloodGroup,
+                bloodGroup: data.bloodGroup || '',
                 bloodUnits: data.bloodUnits || '1',
-                city: data.city,
+                city: data.city || '',
                 hospital: data.hospital || '',
                 requiredDateTime: data.requiredDateTime,
                 formattedRequiredTime,
-                status: data.status || 'pending' // Add overall request status
+                status: data.status || 'pending'
               },
               isHighlighted: (
                 doc.id === route?.params?.highlightRequestId && 
                 response.donorName === route?.params?.donorName &&
                 response.status === route?.params?.status
               )
-            });
+            };
+            
+            allResponses.push(responseItem);
             
             // Count unseen responses
             if (!response.seenByReceiver) {
               newCount++;
+            }
+            
+            // Debug log for first response
+            if (allResponses.length === 1) {
+              console.log('First response item:', {
+                donorName: responseItem.donorName,
+                donorMobile: responseItem.donorMobile,
+                donorBloodGroup: responseItem.donorBloodGroup,
+                bloodGroup: responseItem.requestData?.bloodGroup,
+                city: responseItem.requestData?.city
+              });
             }
           });
         });
@@ -392,7 +434,8 @@ export default function NotificationsScreen() {
           return bTime - aTime;
         });
         
-        setResponses(allResponses);
+        // Force state update with new array reference
+        setResponses([...allResponses]);
         setNewNotificationCount(newCount);
       } catch (error) {
         console.error('Error processing receiver notifications:', error);
@@ -405,7 +448,7 @@ export default function NotificationsScreen() {
     });
     
     return () => unsubscribe();
-  }, [userRole]);
+  }, [userRole, auth.currentUser?.uid, route?.params]);
 
   // Helper function to format dates
   const formatDateTime = (dateValue) => {
@@ -490,9 +533,26 @@ export default function NotificationsScreen() {
                 lastUpdated: serverTimestamp(),
               });
               
-              // Response sent successfully - no notification service needed
+              // Remove accepted request from local state immediately
+              setRequests(prevRequests => prevRequests.filter(req => req.id !== requestId));
               
-              Alert.alert('Success', 'You have accepted the blood donation request!');
+              // Show success message and navigate to home
+              Alert.alert(
+                'Success', 
+                'You have accepted the blood donation request!',
+                [
+                  { 
+                    text: 'OK', 
+                    onPress: () => {
+                      if (navigation.canGoBack()) {
+                        navigation.goBack();
+                      } else {
+                        navigation.navigate('Home');
+                      }
+                    }
+                  }
+                ]
+              );
             } catch (error) {
               console.error('Error accepting request:', error);
               Alert.alert('Error', 'Failed to accept request: ' + error.message);
@@ -547,11 +607,26 @@ export default function NotificationsScreen() {
                 lastUpdated: serverTimestamp(),
               });
               
-              // Firebase function will handle the notification to the requester
+              // Remove declined request from local state immediately
+              setRequests(prevRequests => prevRequests.filter(req => req.id !== requestId));
               
-              // Response sent successfully - no notification service needed
-              
-              Alert.alert('Request Declined', 'You have declined the blood donation request.');
+              // Show message and navigate to home
+              Alert.alert(
+                'Request Declined', 
+                'You have declined the blood donation request.',
+                [
+                  { 
+                    text: 'OK', 
+                    onPress: () => {
+                      if (navigation.canGoBack()) {
+                        navigation.goBack();
+                      } else {
+                        navigation.navigate('Home');
+                      }
+                    }
+                  }
+                ]
+              );
             } catch (error) {
               console.error('Error declining request:', error);
               Alert.alert('Error', 'Failed to decline request: ' + error.message);
@@ -777,7 +852,7 @@ export default function NotificationsScreen() {
             <View style={[
               styles.card,
               styles.responseCard,
-              item.requestData.status === 'completed' ? styles.completedCard :
+              item.requestData?.status === 'completed' ? styles.completedCard :
               item.status === 'accepted' ? styles.acceptedCard : styles.declinedCard,
               item.isHighlighted && styles.highlightedCard,
               !item.seenByReceiver && styles.newCard
@@ -785,11 +860,11 @@ export default function NotificationsScreen() {
               <View style={styles.responseHeader}>
                 <View style={[
                   styles.statusBadge,
-                  item.requestData.status === 'completed' ? styles.completedBadge :
+                  item.requestData?.status === 'completed' ? styles.completedBadge :
                   item.status === 'accepted' ? styles.acceptedBadge : styles.declinedBadge
                 ]}>
                   <Text style={styles.statusText}>
-                    {item.requestData.status === 'completed' ? 'COMPLETED' :
+                    {item.requestData?.status === 'completed' ? 'COMPLETED' :
                      item.status === 'accepted' ? 'ACCEPTED' : 'DECLINED'}
                   </Text>
                 </View>
@@ -804,15 +879,15 @@ export default function NotificationsScreen() {
               <View style={styles.requestSummary}>
                 <Text style={styles.summaryTitle}>Your Request</Text>
                 <Text style={styles.summaryBloodType}>
-                  {item.requestData.bloodGroup} • {item.requestData.bloodUnits} unit(s) • {item.requestData.city}
+                  {item.requestData?.bloodGroup || 'N/A'} • {item.requestData?.bloodUnits || '1'} unit(s) • {item.requestData?.city || 'N/A'}
                 </Text>
                 <Text style={styles.summaryDetail}>
-                  For: {item.requestData.purpose}
+                  For: {item.requestData?.purpose || 'Medical need'}
                 </Text>
                 <Text style={styles.summaryDetail}>
-                  By: {item.requestData.formattedRequiredTime}
+                  By: {item.requestData?.formattedRequiredTime || 'ASAP'}
                 </Text>
-                {item.requestData.hospital && (
+                {item.requestData?.hospital && (
                   <Text style={styles.summaryDetail}>
                     At: {item.requestData.hospital}
                   </Text>
@@ -823,7 +898,7 @@ export default function NotificationsScreen() {
                 <Text style={styles.donorTitle}>Donor Information</Text>
                 <View style={styles.infoRow}>
                   <Text style={styles.donorLabel}>Name:</Text>
-                  <Text style={styles.donorValue}>{item.donorName}</Text>
+                  <Text style={styles.donorValue}>{item.donorName || 'Anonymous'}</Text>
                 </View>
                 
                 {item.donorBloodGroup && (
@@ -851,11 +926,11 @@ export default function NotificationsScreen() {
                 
                 <Text style={styles.responseTime}>
                   <Ionicons name="time-outline" size={12} color="#666" /> 
-                  {item.formattedResponseTime}
+                  {item.formattedResponseTime || 'Recently'}
                 </Text>
               </View>
               
-              {item.status === 'accepted' && item.donorMobile && item.requestData.status !== 'completed' && (
+              {item.status === 'accepted' && item.donorMobile && item.requestData?.status !== 'completed' && (
                 <TouchableOpacity 
                   style={styles.callButton}
                   onPress={() => handlePhoneCall(item.donorMobile)}
@@ -864,7 +939,7 @@ export default function NotificationsScreen() {
                   <Text style={styles.callButtonText}>Call Donor</Text>
                 </TouchableOpacity>
               )}
-              {item.requestData.status === 'completed' && (
+              {item.requestData?.status === 'completed' && (
                 <View style={styles.completedNotice}>
                   <Ionicons name="checkmark-circle" size={20} color="#2e7d32" />
                   <Text style={styles.completedNoticeText}>Blood donation completed successfully!</Text>

@@ -1,4 +1,3 @@
-
 # 🩸 BloodLink
 
 Connecting donors and receivers in real time to make every unit of blood count.
@@ -32,7 +31,7 @@ Connecting donors and receivers in real time to make every unit of blood count.
 
 ## 🩺 Overview
 
-BloodLink empowers hospitals, administrators, and volunteers to collaborate around urgent blood requirements. The application provides streamlined donor onboarding, intelligent matching, and real-time notifications so that the right donor can be connected to the right receiver within minutes. A dedicated admin suite ensures that blood banks maintain visibility over donation activity, matched pairs, and operational KPIs.
+BloodLink empowers hospitals, administrators, and volunteers to collaborate around urgent blood requirements. The application provides streamlined donor onboarding, intelligent matching, and real-time in-app updates so that the right donor can be connected to the right receiver within minutes. A dedicated admin suite ensures that blood banks maintain visibility over donation activity, matched pairs, and operational KPIs.
 
 ---
 
@@ -40,23 +39,23 @@ BloodLink empowers hospitals, administrators, and volunteers to collaborate arou
 
 - **Smart blood requests** with priority, hospital/location metadata, and real-time status tracking
 - **Context-aware donor matching** based on blood group, proximity, and historical responsiveness
-- **In-app notifications** for donors and receivers, including seen/unseen indicators and action prompts
+- **Real-time in-app notifications** for donors and receivers with seen/unseen indicators and instant updates
 - **Role-based experiences** for donors, receivers, and administrators with secure access control
 - **Comprehensive admin console** covering dashboards, matched pairs management, user administration, and analytics
 - **Multi-language readiness** via a centralized translation layer for inclusive access
-- **Firebase-first architecture** for authentication, Firestore persistence, and Cloud Messaging delivery
+- **Firebase-first architecture** for authentication and Cloud Firestore real-time database
 
 ---
 
 ## 🏗️ Architecture & Tech Stack
 
-| Layer | Tooling |
-| --- | --- |
-| Mobile runtime | React Native (Expo), React Navigation, React Native Paper |
-| State & Context | React Context API, custom hooks, persistent storage helpers |
-| Backend services | Firebase Authentication, Cloud Firestore, Cloud Functions, FCM |
-| CI/CD & Build | EAS Build, Expo Application Services, npm scripts |
-| Quality & UX | Lottie animations, reusable UI components, adaptive splash and icon assets |
+| Layer            | Tooling                                                                    |
+| ---------------- | -------------------------------------------------------------------------- |
+| Mobile runtime   | React Native (Expo), React Navigation, React Native Paper                  |
+| State & Context  | React Context API, custom hooks, AsyncStorage for persistence             |
+| Backend services | Firebase Authentication, Cloud Firestore with real-time listeners          |
+| CI/CD & Build    | EAS Build, Expo Application Services, npm scripts                          |
+| Quality & UX     | Lottie animations, reusable UI components, adaptive splash and icon assets |
 
 ---
 
@@ -64,7 +63,7 @@ BloodLink empowers hospitals, administrators, and volunteers to collaborate arou
 
 ![BloodLink main screen](./assets/Readme-img/WhatsApp%20Image%202025-10-04%20at%2000.13.52_00fa3f59.jpg)
 
-*Preview of the BloodLink home experience showcasing curated donor cards and critical actions.*
+_Preview of the BloodLink home experience showcasing curated donor cards and critical actions._
 
 ---
 
@@ -99,7 +98,7 @@ BloodLink empowers hospitals, administrators, and volunteers to collaborate arou
 - **Secure user management:** Admins can elevate roles, lock accounts, or reset access in seconds with full audit visibility.
 - **Environment-driven onboarding:** Bootstrap credentials come from `EXPO_PUBLIC_ADMIN_EMAIL` and `EXPO_PUBLIC_ADMIN_PASSWORD`, keeping secrets out of the repository.
 
-> 📌 *Replace or extend these visuals with your own admin screenshots by updating the files inside `assets/Readme-img/`.*
+> 📌 _Replace or extend these visuals with your own admin screenshots by updating the files inside `assets/Readme-img/`._
 
 ---
 
@@ -110,7 +109,7 @@ BloodLink empowers hospitals, administrators, and volunteers to collaborate arou
 - Node.js **18.x LTS** (or newer)
 - npm **9+** or Yarn **1.22+**
 - Expo CLI (`npm install -g expo-cli`)
-- Firebase project with Authentication, Firestore, and Cloud Messaging enabled
+- Firebase project with Authentication and Firestore enabled
 
 ### Environment Setup
 
@@ -141,12 +140,12 @@ BloodLink empowers hospitals, administrators, and volunteers to collaborate arou
 
 ### Helpful npm Scripts
 
-| Command | Description |
-| --- | --- |
-| `npm run start` | Launch the Expo Metro bundler |
+| Command           | Description                                        |
+| ----------------- | -------------------------------------------------- |
+| `npm run start`   | Launch the Expo Metro bundler                      |
 | `npm run android` | Run the app on a connected Android device/emulator |
-| `npm run ios` | Run the app on an iOS simulator (macOS only) |
-| `npm run lint` | Execute lint checks and formatting validations |
+| `npm run ios`     | Run the app on an iOS simulator (macOS only)       |
+| `npm run lint`    | Execute lint checks and formatting validations     |
 
 ---
 
@@ -202,8 +201,8 @@ eas build -p ios --profile production
 - Enable **Email/Password** and (optional) Social providers in Firebase Authentication
 - Create Firestore collections: `users`, `BloodDonors`, `Bloodreceiver`, and supporting analytics collections
 - Configure Firestore security rules to enforce role-based access (`isAdmin`, `isDonor`, etc.)
-- Set up Cloud Messaging for donor/receiver notification delivery
-- (Optional) Deploy Cloud Functions for scheduled tasks and notification fan-out
+- Set up real-time listeners using Firestore `onSnapshot` for instant updates
+- (Optional) Deploy Cloud Functions for scheduled tasks and automated workflows
 
 ---
 
@@ -236,7 +235,7 @@ This project is licensed under the MIT License. See [LICENSE](LICENSE) for detai
 
 ## 📬 Contact
 
-- **Project Maintainer:** HAARHISH  
+- **Project Maintainer:** HAARHISH
 - **Repository:** [https://github.com/HSBEAST23/MyNewApp](https://github.com/HSBEAST23/MyNewApp)
 
 <div align="center">
