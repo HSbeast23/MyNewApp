@@ -37,8 +37,31 @@ export default function NotificationsScreen() {
   const [responses, setResponses] = useState([]); // For receiver: donor responses
   const [newNotificationCount, setNewNotificationCount] = useState(0);
   const [refreshing, setRefreshing] = useState(false);
-  const [loading, setLoading] = useState(true);
-  const [initialLoadComplete, setInitialLoadComplete] = useState(false);
+  const [userLoading, setUserLoading] = useState(true);
+  const [requestsLoading, setRequestsLoading] = useState(true);
+  const [responsesLoading, setResponsesLoading] = useState(true);
+  const lastProcessStartTime = useRef(Date.now());
+
+  const ensureText = useCallback((value, fallback) => {
+    if (typeof value === 'string') {
+      const trimmed = value.trim();
+      return trimmed.length ? trimmed : fallback;
+    }
+    if (value === null || value === undefined) {
+      return fallback;
+    }
+    return value;
+  }, []);
+
+  const ensureNumberText = useCallback((value, fallback = '1') => {
+    if (value === null || value === undefined) return fallback;
+    if (typeof value === 'number') return String(value);
+    if (typeof value === 'string') {
+      const trimmed = value.trim();
+      return trimmed.length ? trimmed : fallback;
+    }
+    return fallback;
+  }, []);
   const lastSeenMarkTime = useRef(0);
   
   // Function to handle phone calls
@@ -82,16 +105,17 @@ export default function NotificationsScreen() {
         console.log('Screen focused, refreshing data...');
       }
       if (userRole && auth.currentUser?.uid) {
+        // Mark notifications as seen without showing loading state
         markAllAsSeen();
         
-        // Force a state refresh to ensure latest data is displayed
-        if (userRole === 'receiver') {
-          // Trigger a re-fetch by briefly toggling loading
-          setLoading(true);
-          setTimeout(() => setLoading(false), 100);
+        // Only show loading state if we don't have data already
+        if (userRole === 'receiver' && responses.length === 0) {
+          setResponsesLoading(true);
+        } else if (userRole === 'donor' && requests.length === 0) {
+          setRequestsLoading(true);
         }
       }
-    }, [userRole, userCity, userBloodGroup, auth.currentUser?.uid])
+    }, [userRole, userCity, userBloodGroup, auth.currentUser?.uid, responses.length, requests.length])
   );
 
   // Function to mark all notifications as seen (with debouncing)
@@ -194,14 +218,28 @@ export default function NotificationsScreen() {
       if (__DEV__) {
         console.log('Fetching user details...');
       }
-      setLoading(true);
+      setUserLoading(true);
+      
+      // Only set loading states for initial load
+      // For subsequent refreshes, we'll keep showing existing data
+      if (requests.length === 0) {
+        setRequestsLoading(true);
+      }
+      
+      if (responses.length === 0) {
+        setResponsesLoading(true);
+        
+        // Force brief loading display to avoid blank cards only on initial load
+        await new Promise(resolve => setTimeout(resolve, 300));
+      }
       const currentUser = auth.currentUser;
       if (!currentUser) {
         if (__DEV__) {
           console.log('No current user found');
         }
-        setLoading(false);
-        setInitialLoadComplete(true);
+        setUserLoading(false);
+        setRequestsLoading(false);
+        setResponsesLoading(false);
         return;
       }
       
@@ -236,8 +274,7 @@ export default function NotificationsScreen() {
       } catch (error) {
         console.error('Error fetching user details:', error);
       } finally {
-        setLoading(false);
-        setInitialLoadComplete(true);
+        setUserLoading(false);
       }
     };
     
@@ -274,17 +311,23 @@ export default function NotificationsScreen() {
   useEffect(() => {
     if (!userRole || userRole !== 'donor' || !userCity || !userBloodGroup || !auth.currentUser?.uid) {
       setRequests([]);
-      setLoading(false);
+      // End loading state immediately
+      setRequestsLoading(false);
       if (__DEV__) {
         console.log('Donor notifications disabled:', { userRole, userCity, userBloodGroup, uid: auth.currentUser?.uid });
       }
       return;
     }
     
+    // Only show loading state if we don't have any existing data
+    if (requests.length === 0) {
+      setRequestsLoading(true);
+    }
+    
     if (__DEV__) {
       console.log('Setting up donor notifications listener for user:', auth.currentUser.uid, { userCity, userBloodGroup });
     }
-    setLoading(true);
+  setRequestsLoading(true);
     
     // Query for matching blood requests
     const q = query(
@@ -299,11 +342,31 @@ export default function NotificationsScreen() {
         if (__DEV__) {
           console.log('Donor notifications snapshot received, size:', snapshot.size);
         }
+        
+        // Immediately check if snapshot is empty to guarantee fast loading state transition
+        if (snapshot.empty) {
+          if (__DEV__) {
+            console.log('No matching donor requests found - ending load state');
+          }
+          setRequests([]);
+          setRequestsLoading(false);
+          return;
+        }
+        
         const matchedRequests = [];
         let newCount = 0;
         
         snapshot.forEach(doc => {
           const data = doc.data();
+          if (__DEV__) {
+            console.log('📋 Processing donor match doc:', doc.id, 'data:', 
+              JSON.stringify({
+                name: data.name || 'MISSING',
+                bloodGroup: data.bloodGroup || 'MISSING',
+                city: data.city || 'MISSING'
+              })
+            );
+          }
           const seenBy = data.seenBy || [];
           
           // Check if this donor has already responded
@@ -318,18 +381,18 @@ export default function NotificationsScreen() {
             // Ensure all required fields have default values to prevent blank cards
             matchedRequests.push({
               id: doc.id,
-              name: data.name || 'Anonymous Patient',
-              bloodGroup: data.bloodGroup || 'Unknown',
-              bloodUnits: data.bloodUnits || '1',
-              city: data.city || 'Not specified',
-              purpose: data.purpose || 'Medical need',
-              hospital: data.hospital || '',
-              mobile: data.mobile || '',
+              name: ensureText(data.name, 'Anonymous Patient'),
+              bloodGroup: ensureText(data.bloodGroup, 'Unknown'),
+              bloodUnits: ensureNumberText(data.bloodUnits),
+              city: ensureText(data.city, 'Not specified'),
+              purpose: ensureText(data.purpose, 'Medical need'),
+              hospital: ensureText(data.hospital, ''),
+              mobile: ensureText(data.mobile, ''),
               requiredDateTime: data.requiredDateTime || null,
               createdAt: data.createdAt || null,
-              status: data.status || 'pending',
+              status: ensureText(data.status, 'pending'),
               uid: data.uid || '',
-              responses: data.responses || [],
+              responses: Array.isArray(data.responses) ? data.responses : [],
               seenBy: seenBy,
               formattedDate,
               isNew,
@@ -363,11 +426,11 @@ export default function NotificationsScreen() {
       } catch (error) {
         console.error('Error processing donor notifications:', error);
       } finally {
-        setLoading(false);
+        setRequestsLoading(false);
       }
     }, (error) => {
       console.error('Error listening to donor notifications:', error);
-      setLoading(false);
+      setRequestsLoading(false);
     });
     
     return () => unsubscribe();
@@ -377,7 +440,8 @@ export default function NotificationsScreen() {
   useEffect(() => {
     if (!userRole || userRole !== 'receiver' || !auth.currentUser?.uid) {
       setResponses([]);
-      setLoading(false);
+      // End loading state immediately
+      setResponsesLoading(false);
       if (__DEV__) {
         console.log('Receiver notifications disabled:', { userRole, uid: auth.currentUser?.uid });
       }
@@ -387,7 +451,11 @@ export default function NotificationsScreen() {
     if (__DEV__) {
       console.log('Setting up receiver notifications listener for user:', auth.currentUser.uid);
     }
-    setLoading(true);
+    
+    // Only show loading state if we don't have any existing data
+    if (responses.length === 0) {
+      setResponsesLoading(true);
+    }
     
     // Query for user's blood requests
     const q = query(
@@ -395,7 +463,10 @@ export default function NotificationsScreen() {
       where('uid', '==', auth.currentUser.uid)
     );
     
-    const unsubscribe = onSnapshot(q, (snapshot) => {
+    const unsubscribe = onSnapshot(q, async (snapshot) => {
+      // Record processing start time
+      lastProcessStartTime.current = Date.now();
+      
       try {
         if (__DEV__) {
           console.log('Receiver notifications snapshot received, size:', snapshot.size);
@@ -423,6 +494,15 @@ export default function NotificationsScreen() {
               }
               return;
             }
+            if (__DEV__) {
+              console.log('📋 Processing receiver response:', doc.id, 'index:', index, 'data:',
+                JSON.stringify({
+                  donorName: response.donorName || 'MISSING',
+                  donorBloodGroup: response.donorBloodGroup || data.bloodGroup || 'MISSING',
+                  status: response.status || 'MISSING'
+                })
+              );
+            }
             if (response.donorUid) {
               seenDonors.add(response.donorUid);
             }
@@ -432,27 +512,27 @@ export default function NotificationsScreen() {
             // Ensure all required fields have default values
             const responseItem = {
               id: `${doc.id}_${index}`,
-              requestId: doc.id,
+              requestId: doc.id || `req-${Math.random().toString(36).substring(2, 9)}`,
               donorUid: response.donorUid || '',
-              donorName: response.donorName || 'Anonymous Donor',
-              donorMobile: response.donorMobile || '',
-              donorBloodGroup: response.donorBloodGroup || data.bloodGroup || '',
-              donorCity: response.donorCity || data.city || '',
-              status: response.status || 'pending',
-              respondedAt: response.respondedAt,
+              donorName: ensureText(response.donorName, 'Anonymous Donor'),
+              donorMobile: ensureText(response.donorMobile, ''),
+              donorBloodGroup: ensureText(response.donorBloodGroup || data.bloodGroup, 'Unknown'),
+              donorCity: ensureText(response.donorCity || data.city, 'Not specified'),
+              status: ensureText(response.status, 'pending'),
+              respondedAt: response.respondedAt || new Date(),
               seenByReceiver: response.seenByReceiver || false,
-              formattedResponseTime,
+              formattedResponseTime: ensureText(formattedResponseTime, 'Recently'),
               requestData: {
-                purpose: data.purpose || 'Medical need',
-                bloodGroup: data.bloodGroup || '',
-                bloodUnits: data.bloodUnits || '1',
-                city: data.city || '',
-                hospital: data.hospital || '',
-                requiredDateTime: data.requiredDateTime,
-                formattedRequiredTime,
-                status: data.status || 'pending'
+                purpose: ensureText(data.purpose, 'Medical need'),
+                bloodGroup: ensureText(data.bloodGroup, 'Unknown'),
+                bloodUnits: ensureNumberText(data.bloodUnits, '1'),
+                city: ensureText(data.city, 'Not specified'),
+                hospital: ensureText(data.hospital, 'Not specified'),
+                requiredDateTime: data.requiredDateTime || new Date(),
+                formattedRequiredTime: ensureText(formattedRequiredTime, 'As soon as possible'),
+                status: ensureText(data.status, 'pending')
               },
-              isHighlighted: (
+              isHighlighted: !!(
                 doc.id === route?.params?.highlightRequestId && 
                 response.donorName === route?.params?.donorName &&
                 response.status === route?.params?.status
@@ -495,16 +575,42 @@ export default function NotificationsScreen() {
         });
         
         // Force state update with new array reference
-        setResponses([...allResponses]);
+        // Validate responses before setting state
+        const validatedResponses = allResponses.filter(item => {
+          const isValid = item && typeof item === 'object' && 
+                        (item.donorName || (item.requestData && 
+                         (item.requestData.bloodGroup || item.requestData.purpose)));
+          
+          if (!isValid && __DEV__) {
+            console.warn('⚠️ Filtering invalid response item:', JSON.stringify(item));
+          }
+          
+          return isValid;
+        });
+        
+        if (__DEV__) {
+          console.log(`Filtered responses: ${validatedResponses.length} valid of ${allResponses.length} total`);
+        }
+        
+        // Set a minimum processing time to avoid quick flashing
+        const processEndTime = Date.now();
+        const minProcessTime = 300; // ms
+        const elapsedTime = processEndTime - (lastProcessStartTime || 0);
+        
+        if (elapsedTime < minProcessTime) {
+          await new Promise(resolve => setTimeout(resolve, minProcessTime - elapsedTime));
+        }
+        
+        setResponses([...validatedResponses]);
         setNewNotificationCount(newCount);
       } catch (error) {
         console.error('Error processing receiver notifications:', error);
       } finally {
-        setLoading(false);
+        setResponsesLoading(false);
       }
     }, (error) => {
       console.error('Error listening to receiver notifications:', error);
-      setLoading(false);
+      setResponsesLoading(false);
     });
     
     return () => unsubscribe();
@@ -710,14 +816,18 @@ export default function NotificationsScreen() {
       });
     }
     
-    // Mark all as seen again
+    if (__DEV__) {
+      console.log('Screen focused, refreshing data...');
+    }
+    
+    // Mark all as seen again without triggering loading state
     markAllAsSeen().finally(() => {
       setRefreshing(false);
     });
   };
 
   // Loading state - only show on initial load
-  if ((loading && !initialLoadComplete) || !fontsLoaded) {
+  if (userLoading || !fontsLoaded) {
     return (
       <View style={styles.centerContainer}>
         <ActivityIndicator size="large" color="#b71c1c" />
@@ -755,7 +865,7 @@ export default function NotificationsScreen() {
           )}
         </View>
         
-        {loading ? (
+        {requestsLoading && requests.length === 0 ? (
           <View style={styles.centerContainer}>
             <ActivityIndicator size="large" color="#b71c1c" />
             <Text style={styles.loadingText}>Loading notifications...</Text>
@@ -769,8 +879,51 @@ export default function NotificationsScreen() {
         ) : (
           <FlatList
             data={requests}
-            keyExtractor={item => item.id}
-            renderItem={({ item }) => (
+            extraData={requests.length} 
+            keyExtractor={item => item?.id || `fallback-key-${Math.random()}`}
+            renderItem={({ item, index }) => {
+              // Triple-check for valid item
+              if (!item || typeof item !== 'object') {
+                console.warn('⚠️ Donor FlatList received invalid item:', item);
+                return null;
+              }
+              
+              // Additional defensive check for critical fields
+              const hasMinimalData = item.id && (item.bloodGroup || item.name);
+              if (!hasMinimalData) {
+                console.warn('⚠️ Donor card missing critical data:', JSON.stringify(item));
+                
+                // Return a fallback card with guaranteed content when data is corrupted
+                return (
+                  <View style={[styles.card, styles.requestCard]}>
+                    <View style={styles.cardHeader}>
+                      <View style={styles.urgentBadge}>
+                        <Text style={styles.urgentText}>BLOOD REQUEST</Text>
+                      </View>
+                    </View>
+                    <View style={styles.requestInfo}>
+                      <Text style={{padding: 20, textAlign: 'center'}}>
+                        Loading request details...
+                      </Text>
+                    </View>
+                  </View>
+                );
+              }
+              
+              if (__DEV__) {
+                console.log(`✅ Rendering donor match card[${index}]:`, item.id, 'isNew:', item.isNew);
+              }
+
+              const patientName = ensureText(item.name, 'Anonymous Patient');
+              const patientPurpose = ensureText(item.purpose, 'Medical need');
+              const patientCity = ensureText(item.city, 'Not specified');
+              const patientHospital = ensureText(item.hospital, '');
+              const patientMobile = ensureText(item.mobile, '');
+              const bloodUnitsNeeded = ensureNumberText(item.bloodUnits);
+              const bloodGroupNeeded = ensureText(item.bloodGroup, 'Unknown');
+              const formattedRequired = ensureText(item.formattedDate, 'As soon as possible');
+
+              return (
               <View style={[
                 styles.card,
                 styles.requestCard,
@@ -791,49 +944,49 @@ export default function NotificationsScreen() {
                 <View style={styles.requestInfo}>
                   <View style={styles.infoRow}>
                     <Text style={styles.requestLabel}>Patient:</Text>
-                    <Text style={styles.requestValue}>{item.name || 'Anonymous'}</Text>
+                    <Text style={styles.requestValue}>{patientName}</Text>
                   </View>
                   
                   <View style={styles.infoRow}>
                     <Text style={styles.requestLabel}>Blood Group:</Text>
-                    <Text style={styles.bloodType}>{item.bloodGroup}</Text>
+                    <Text style={styles.bloodType}>{bloodGroupNeeded}</Text>
                   </View>
                   
                   <View style={styles.infoRow}>
                     <Text style={styles.requestLabel}>Units Needed:</Text>
-                    <Text style={styles.requestValue}>{item.bloodUnits || '1'}</Text>
+                    <Text style={styles.requestValue}>{bloodUnitsNeeded}</Text>
                   </View>
                   
                   <View style={styles.infoRow}>
                     <Text style={styles.requestLabel}>Location:</Text>
-                    <Text style={styles.requestValue}>{item.city}</Text>
+                    <Text style={styles.requestValue}>{patientCity}</Text>
                   </View>
                   
                   <View style={styles.infoRow}>
                     <Text style={styles.requestLabel}>Purpose:</Text>
-                    <Text style={styles.requestValue}>{item.purpose || 'Medical need'}</Text>
+                    <Text style={styles.requestValue}>{patientPurpose}</Text>
                   </View>
                   
-                  {item.hospital && (
+                  {patientHospital ? (
                     <View style={styles.infoRow}>
                       <Text style={styles.requestLabel}>Hospital:</Text>
-                      <Text style={styles.requestValue}>{item.hospital}</Text>
+                      <Text style={styles.requestValue}>{patientHospital}</Text>
                     </View>
-                  )}
+                  ) : null}
                   
                   <View style={styles.infoRow}>
                     <Text style={styles.requestLabel}>Required By:</Text>
-                    <Text style={styles.urgentValue}>{item.formattedDate}</Text>
+                    <Text style={styles.urgentValue}>{formattedRequired}</Text>
                   </View>
                   
-                  {item.mobile && (
+                  {patientMobile ? (
                     <View style={styles.infoRow}>
                       <Text style={styles.requestLabel}>Contact:</Text>
-                      <TouchableOpacity onPress={() => handlePhoneCall(item.mobile)}>
-                        <Text style={styles.phoneValue}>{item.mobile}</Text>
+                      <TouchableOpacity onPress={() => handlePhoneCall(patientMobile)}>
+                        <Text style={styles.phoneValue}>{patientMobile}</Text>
                       </TouchableOpacity>
                     </View>
-                  )}
+                  ) : null}
                 </View>
                 
                 <View style={styles.timeInfo}>
@@ -861,7 +1014,8 @@ export default function NotificationsScreen() {
                   </TouchableOpacity>
                 </View>
               </View>
-            )}
+              );
+            }}
             refreshControl={
               <RefreshControl 
                 refreshing={refreshing}
@@ -893,7 +1047,7 @@ export default function NotificationsScreen() {
         )}
       </View>
       
-      {loading ? (
+      {responsesLoading && responses.length === 0 ? (
         <View style={styles.centerContainer}>
           <ActivityIndicator size="large" color="#b71c1c" />
           <Text style={styles.loadingText}>Loading responses...</Text>
@@ -907,8 +1061,64 @@ export default function NotificationsScreen() {
       ) : (
         <FlatList
           data={responses}
-          keyExtractor={item => item.id}
-          renderItem={({ item }) => (
+          extraData={responses.length}
+          keyExtractor={item => item?.id || `fallback-key-${Math.random()}`}
+          ListEmptyComponent={
+            <View style={styles.emptyContainer}>
+              <FontAwesome5 name="hand-holding-heart" size={60} color="#999" />
+              <Text style={styles.emptyText}>No donor responses yet</Text>
+              <Text style={styles.emptySubtext}>When donors respond to your requests, they'll appear here</Text>
+            </View>
+          }
+          renderItem={({ item, index }) => {
+            if (!item || typeof item !== 'object') {
+              console.warn('⚠️ Receiver FlatList received invalid item:', item);
+              return null;
+            }
+            
+            // Check for minimum required data to render a proper card
+            const hasMinimalData = item.donorName || 
+                                 (item.requestData && 
+                                  (item.requestData.bloodGroup || 
+                                   item.requestData.purpose));
+            
+            if (!hasMinimalData) {
+              console.warn('⚠️ Receiver card missing critical data:', JSON.stringify(item));
+              
+              // Return a fallback card with guaranteed content when data is corrupted
+              return (
+                <View style={[styles.card, styles.responseCard]}>
+                  <View style={styles.responseHeader}>
+                    <View style={styles.responseBadge}>
+                      <Text style={styles.responseBadgeText}>DONOR RESPONSE</Text>
+                    </View>
+                  </View>
+                  <View style={styles.donorInfo}>
+                    <Text style={{padding: 10, textAlign: 'center'}}>
+                      Loading donor details...
+                    </Text>
+                  </View>
+                </View>
+              );
+            }
+            
+            if (__DEV__) {
+              console.log('✅ Rendering receiver response card:', item.id, 'status:', item.status, 'seen:', item.seenByReceiver);
+            }
+
+            const donorName = ensureText(item.donorName, 'Anonymous Donor');
+            const donorCity = ensureText(item.donorCity, '');
+            const donorBloodGroup = ensureText(item.donorBloodGroup, '');
+            const donorMobile = ensureText(item.donorMobile, '');
+            const responseTime = ensureText(item.formattedResponseTime, 'Recently');
+            const requestPurpose = ensureText(item.requestData?.purpose, 'Medical need');
+            const requestCity = ensureText(item.requestData?.city, '');
+            const requestHospital = ensureText(item.requestData?.hospital, '');
+            const requestBloodGroup = ensureText(item.requestData?.bloodGroup, '');
+            const requestUnits = ensureNumberText(item.requestData?.bloodUnits);
+            const requiredTime = ensureText(item.requestData?.formattedRequiredTime, 'ASAP');
+
+            return (
             <View style={[
               styles.card,
               styles.responseCard,
@@ -939,61 +1149,61 @@ export default function NotificationsScreen() {
               <View style={styles.requestSummary}>
                 <Text style={styles.summaryTitle}>Your Request</Text>
                 <Text style={styles.summaryBloodType}>
-                  {item.requestData?.bloodGroup || 'N/A'} • {item.requestData?.bloodUnits || '1'} unit(s) • {item.requestData?.city || 'N/A'}
+                  {requestBloodGroup || 'N/A'} • {requestUnits} unit(s) • {requestCity || 'N/A'}
                 </Text>
                 <Text style={styles.summaryDetail}>
-                  For: {item.requestData?.purpose || 'Medical need'}
+                  For: {requestPurpose}
                 </Text>
                 <Text style={styles.summaryDetail}>
-                  By: {item.requestData?.formattedRequiredTime || 'ASAP'}
+                  By: {requiredTime}
                 </Text>
-                {item.requestData?.hospital && (
+                {requestHospital ? (
                   <Text style={styles.summaryDetail}>
-                    At: {item.requestData.hospital}
+                    At: {requestHospital}
                   </Text>
-                )}
+                ) : null}
               </View>
               
               <View style={styles.donorInfo}>
                 <Text style={styles.donorTitle}>Donor Information</Text>
                 <View style={styles.infoRow}>
                   <Text style={styles.donorLabel}>Name:</Text>
-                  <Text style={styles.donorValue}>{item.donorName || 'Anonymous'}</Text>
+                  <Text style={styles.donorValue}>{donorName}</Text>
                 </View>
                 
-                {item.donorBloodGroup && (
+                {donorBloodGroup ? (
                   <View style={styles.infoRow}>
                     <Text style={styles.donorLabel}>Blood Group:</Text>
-                    <Text style={styles.bloodType}>{item.donorBloodGroup}</Text>
+                    <Text style={styles.bloodType}>{donorBloodGroup}</Text>
                   </View>
-                )}
+                ) : null}
                 
-                {item.donorCity && (
+                {donorCity ? (
                   <View style={styles.infoRow}>
                     <Text style={styles.donorLabel}>Location:</Text>
-                    <Text style={styles.donorValue}>{item.donorCity}</Text>
+                    <Text style={styles.donorValue}>{donorCity}</Text>
                   </View>
-                )}
+                ) : null}
                 
-                {item.donorMobile && item.status === 'accepted' && (
+                {donorMobile && item.status === 'accepted' && (
                   <View style={styles.infoRow}>
                     <Text style={styles.donorLabel}>Contact:</Text>
-                    <TouchableOpacity onPress={() => handlePhoneCall(item.donorMobile)}>
-                      <Text style={styles.phoneValue}>{item.donorMobile}</Text>
+                    <TouchableOpacity onPress={() => handlePhoneCall(donorMobile)}>
+                      <Text style={styles.phoneValue}>{donorMobile}</Text>
                     </TouchableOpacity>
                   </View>
                 )}
                 
                 <Text style={styles.responseTime}>
                   <Ionicons name="time-outline" size={12} color="#666" /> 
-                  {item.formattedResponseTime || 'Recently'}
+                  {responseTime}
                 </Text>
               </View>
               
-              {item.status === 'accepted' && item.donorMobile && item.requestData?.status !== 'completed' && (
+              {item.status === 'accepted' && donorMobile && item.requestData?.status !== 'completed' && (
                 <TouchableOpacity 
                   style={styles.callButton}
-                  onPress={() => handlePhoneCall(item.donorMobile)}
+                  onPress={() => handlePhoneCall(donorMobile)}
                 >
                   <Ionicons name="call" size={16} color="#fff" />
                   <Text style={styles.callButtonText}>Call Donor</Text>
@@ -1006,7 +1216,8 @@ export default function NotificationsScreen() {
                 </View>
               )}
             </View>
-          )}
+            );
+          }}
           refreshControl={
             <RefreshControl 
               refreshing={refreshing}
@@ -1079,7 +1290,8 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 4,
     elevation: 3,
-    minHeight: 100,
+    minHeight: 150,
+    minWidth: '100%',
   },
   requestCard: {
     borderLeftWidth: 4,
@@ -1087,6 +1299,8 @@ const styles = StyleSheet.create({
   },
   responseCard: {
     borderLeftWidth: 4,
+    minHeight: 150,
+    backgroundColor: '#fff',
   },
   acceptedCard: {
     borderLeftColor: '#4caf50',

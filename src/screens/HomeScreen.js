@@ -36,6 +36,7 @@ export default function HomeScreen({ navigation, route }) {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [userProfile, setUserProfile] = useState(null);
   const [notificationCount, setNotificationCount] = useState(0);
+  const [hasNewNotification, setHasNewNotification] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
   const [showSuccessCard, setShowSuccessCard] = useState(false);
   const slidesRef = useRef(null);
@@ -129,6 +130,7 @@ export default function HomeScreen({ navigation, route }) {
               }
             });
             setNotificationCount(newCount);
+            setHasNewNotification(newCount > 0);
           });
         } else {
           // User is a donor - listen for matching requests
@@ -152,6 +154,7 @@ export default function HomeScreen({ navigation, route }) {
               }
             });
             setNotificationCount(newCount);
+            setHasNewNotification(newCount > 0);
           });
         }
       } catch (error) {
@@ -169,6 +172,11 @@ export default function HomeScreen({ navigation, route }) {
   // Notification functionality removed for cleaner code
   // No need for these carousel-related functions since they're now handled by the ImageCarousel component
 
+  const handleOpenNotifications = () => {
+    setHasNewNotification(false);
+    navigation.navigate('Notifications');
+  };
+
   return (
     <View style={styles.wrapper}>
       <ScrollView contentContainerStyle={styles.container}>
@@ -180,14 +188,10 @@ export default function HomeScreen({ navigation, route }) {
           <Text style={styles.headerText}>BloodLink</Text>
           <TouchableOpacity
             style={styles.notificationContainer}
-            onPress={() => navigation.navigate('Notifications')}
+            onPress={handleOpenNotifications}
           >
             <Ionicons name="notifications-outline" size={24} color="#fff" />
-            {notificationCount > 0 && (
-              <View style={styles.notificationBadge}>
-                <Text style={styles.notificationBadgeText}>{notificationCount}</Text>
-              </View>
-            )}
+            {hasNewNotification && <View style={styles.notificationDot} />}
           </TouchableOpacity>
         </View>
         
@@ -240,15 +244,11 @@ export default function HomeScreen({ navigation, route }) {
         <View style={styles.iconRow}>
           <TouchableOpacity
             style={styles.iconButton}
-            onPress={() => navigation.navigate('Notifications')}
+            onPress={handleOpenNotifications}
           >
             <View style={styles.iconWithBadge}>
               <Ionicons name="notifications" size={36} color="#d32f2f" />
-              {notificationCount > 0 && (
-                <View style={styles.iconBadge}>
-                  <Text style={styles.iconBadgeText}>{notificationCount}</Text>
-                </View>
-              )}
+              {hasNewNotification && <View style={styles.iconDot} />}
             </View>
             <Text style={styles.iconLabel}>{t('notifications')}</Text>
           </TouchableOpacity>
@@ -402,6 +402,17 @@ const styles = StyleSheet.create({
   notificationContainer: {
     position: 'relative',
   },
+  notificationDot: {
+    position: 'absolute',
+    top: -4,
+    right: -4,
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: '#ff4444',
+    borderWidth: 1,
+    borderColor: '#fff',
+  },
   notificationBadge: {
     position: 'absolute',
     top: -5,
@@ -471,6 +482,17 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 10,
     fontFamily: 'Poppins_600SemiBold',
+  },
+  iconDot: {
+    position: 'absolute',
+    top: -4,
+    right: -4,
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: '#ff4444',
+    borderWidth: 1,
+    borderColor: '#fff',
   },
   successCard: {
     backgroundColor: '#e8f5e9',
