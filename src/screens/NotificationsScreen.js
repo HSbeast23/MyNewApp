@@ -40,7 +40,11 @@ export default function NotificationsScreen() {
   const [userLoading, setUserLoading] = useState(true);
   const [requestsLoading, setRequestsLoading] = useState(true);
   const [responsesLoading, setResponsesLoading] = useState(true);
+  const [requestsReady, setRequestsReady] = useState(false);
+  const [responsesReady, setResponsesReady] = useState(false);
   const lastProcessStartTime = useRef(Date.now());
+  const requestsRef = useRef([]);
+  const responsesRef = useRef([]);
 
   const ensureText = useCallback((value, fallback) => {
     if (typeof value === 'string') {
@@ -61,6 +65,21 @@ export default function NotificationsScreen() {
       return trimmed.length ? trimmed : fallback;
     }
     return fallback;
+  }, []);
+  const hasEssentialRequestData = useCallback((data) => {
+    if (!data) return false;
+    const hasLocation = typeof data.city === 'string' && data.city.trim().length > 0;
+    const hasBloodGroup = typeof data.bloodGroup === 'string' && data.bloodGroup.trim().length > 0;
+    const hasPurpose = typeof data.purpose === 'string' && data.purpose.trim().length > 0;
+    return hasLocation && hasBloodGroup && hasPurpose;
+  }, []);
+
+  const hasEssentialResponseData = useCallback((response, requestData) => {
+    if (!response) return false;
+    const donorGroup = typeof response.donorBloodGroup === 'string' && response.donorBloodGroup.trim().length > 0;
+    const fallbackGroup = typeof requestData?.bloodGroup === 'string' && requestData.bloodGroup.trim().length > 0;
+    const hasStatus = typeof response.status === 'string' && response.status.trim().length > 0;
+    return hasStatus && (donorGroup || fallbackGroup);
   }, []);
   const lastSeenMarkTime = useRef(0);
   
@@ -117,6 +136,15 @@ export default function NotificationsScreen() {
       }
     }, [userRole, userCity, userBloodGroup, auth.currentUser?.uid, responses.length, requests.length])
   );
+
+  useEffect(() => {
+    requestsRef.current = requests;
+  }, [requests]);
+
+  useEffect(() => {
+    responsesRef.current = responses;
+  }, [responses]);
+
 
   // Function to mark all notifications as seen (with debouncing)
   const markAllAsSeen = async () => {
@@ -313,6 +341,7 @@ export default function NotificationsScreen() {
       setRequests([]);
       // End loading state immediately
       setRequestsLoading(false);
+      setRequestsReady(true);
       if (__DEV__) {
         console.log('Donor notifications disabled:', { userRole, userCity, userBloodGroup, uid: auth.currentUser?.uid });
       }
@@ -322,12 +351,13 @@ export default function NotificationsScreen() {
     // Only show loading state if we don't have any existing data
     if (requests.length === 0) {
       setRequestsLoading(true);
+      setRequestsReady(false);
     }
     
     if (__DEV__) {
       console.log('Setting up donor notifications listener for user:', auth.currentUser.uid, { userCity, userBloodGroup });
     }
-  setRequestsLoading(true);
+    setRequestsLoading(prev => prev || requests.length === 0);
     
     // Query for matching blood requests
     const q = query(
@@ -338,6 +368,7 @@ export default function NotificationsScreen() {
     );
     
     const unsubscribe = onSnapshot(q, (snapshot) => {
+      let keepLoading = false;
       try {
         if (__DEV__) {
           console.log('Donor notifications snapshot received, size:', snapshot.size);
@@ -349,12 +380,14 @@ export default function NotificationsScreen() {
             console.log('No matching donor requests found - ending load state');
           }
           setRequests([]);
+          setRequestsReady(true);
           setRequestsLoading(false);
           return;
         }
         
         const matchedRequests = [];
         let newCount = 0;
+        let hasIncompleteDocs = false;
         
         snapshot.forEach(doc => {
           const data = doc.data();
@@ -373,6 +406,13 @@ export default function NotificationsScreen() {
           const hasResponded = data.responses?.some(r => r.donorUid === auth.currentUser?.uid);
           
           if (!hasResponded) {
+            if (!hasEssentialRequestData(data)) {
+              hasIncompleteDocs = true;
+              if (__DEV__) {
+                console.log('⏳ Skipping incomplete donor match doc:', doc.id);
+              }
+              return;
+            }
             const isNew = !seenBy.includes(auth.currentUser?.uid);
             
             // Format required date/time
@@ -408,6 +448,20 @@ export default function NotificationsScreen() {
         if (__DEV__) {
           console.log('Matched requests found:', matchedRequests.length, 'New:', newCount);
         }
+
+        if (matchedRequests.length === 0 && hasIncompleteDocs) {
+          if (__DEV__) {
+            console.log('Deferring donor cards render until Firestore doc is fully populated');
+          }
+          if (requestsRef.current.length === 0) {
+            keepLoading = true;
+            setRequestsReady(false);
+            setRequestsLoading(true);
+          } else {
+            keepLoading = false;
+          }
+          return;
+        }
         
         // Sort by urgency (closest date first)
         matchedRequests.sort((a, b) => {
@@ -423,13 +477,17 @@ export default function NotificationsScreen() {
         
         setRequests(matchedRequests);
         setNewNotificationCount(newCount);
+        setRequestsReady(true);
       } catch (error) {
         console.error('Error processing donor notifications:', error);
       } finally {
-        setRequestsLoading(false);
+        if (!keepLoading) {
+          setRequestsLoading(false);
+        }
       }
     }, (error) => {
       console.error('Error listening to donor notifications:', error);
+      setRequestsReady(true);
       setRequestsLoading(false);
     });
     
@@ -442,6 +500,7 @@ export default function NotificationsScreen() {
       setResponses([]);
       // End loading state immediately
       setResponsesLoading(false);
+      setResponsesReady(true);
       if (__DEV__) {
         console.log('Receiver notifications disabled:', { userRole, uid: auth.currentUser?.uid });
       }
@@ -455,6 +514,7 @@ export default function NotificationsScreen() {
     // Only show loading state if we don't have any existing data
     if (responses.length === 0) {
       setResponsesLoading(true);
+      setResponsesReady(false);
     }
     
     // Query for user's blood requests
@@ -466,13 +526,15 @@ export default function NotificationsScreen() {
     const unsubscribe = onSnapshot(q, async (snapshot) => {
       // Record processing start time
       lastProcessStartTime.current = Date.now();
+      let keepLoading = false;
       
       try {
         if (__DEV__) {
           console.log('Receiver notifications snapshot received, size:', snapshot.size);
         }
-        const allResponses = [];
-        let newCount = 0;
+  const allResponses = [];
+  let newCount = 0;
+  let hasIncompleteDocs = false;
         
         snapshot.forEach(doc => {
           const data = doc.data();
@@ -505,6 +567,13 @@ export default function NotificationsScreen() {
             }
             if (response.donorUid) {
               seenDonors.add(response.donorUid);
+            }
+            if (!hasEssentialResponseData(response, data)) {
+              hasIncompleteDocs = true;
+              if (__DEV__) {
+                console.log('⏳ Skipping incomplete response for doc:', doc.id, 'index:', index);
+              }
+              return;
             }
             const formattedResponseTime = formatDateTime(response.respondedAt) || 'Recently';
             const formattedRequiredTime = formatDateTime(data.requiredDateTime) || 'As soon as possible';
@@ -564,6 +633,20 @@ export default function NotificationsScreen() {
         if (__DEV__) {
           console.log('Total responses found:', allResponses.length, 'Unseen:', newCount);
         }
+
+        if (allResponses.length === 0 && hasIncompleteDocs) {
+          if (__DEV__) {
+            console.log('Deferring receiver cards render until Firestore response data is complete');
+          }
+          if (responsesRef.current.length === 0) {
+            keepLoading = true;
+            setResponsesReady(false);
+            setResponsesLoading(true);
+          } else {
+            keepLoading = false;
+          }
+          return;
+        }
         
         // Sort responses by time (newest first)
         allResponses.sort((a, b) => {
@@ -591,11 +674,25 @@ export default function NotificationsScreen() {
         if (__DEV__) {
           console.log(`Filtered responses: ${validatedResponses.length} valid of ${allResponses.length} total`);
         }
+
+        if (validatedResponses.length === 0 && (allResponses.length > 0 || hasIncompleteDocs)) {
+          if (__DEV__) {
+            console.log('Validated responses empty, waiting for complete data before rendering');
+          }
+          if (responsesRef.current.length === 0) {
+            keepLoading = true;
+            setResponsesReady(false);
+            setResponsesLoading(true);
+          } else {
+            keepLoading = false;
+          }
+          return;
+        }
         
         // Set a minimum processing time to avoid quick flashing
         const processEndTime = Date.now();
         const minProcessTime = 300; // ms
-        const elapsedTime = processEndTime - (lastProcessStartTime || 0);
+        const elapsedTime = processEndTime - (lastProcessStartTime.current || 0);
         
         if (elapsedTime < minProcessTime) {
           await new Promise(resolve => setTimeout(resolve, minProcessTime - elapsedTime));
@@ -603,13 +700,17 @@ export default function NotificationsScreen() {
         
         setResponses([...validatedResponses]);
         setNewNotificationCount(newCount);
+        setResponsesReady(true);
       } catch (error) {
         console.error('Error processing receiver notifications:', error);
       } finally {
-        setResponsesLoading(false);
+        if (!keepLoading) {
+          setResponsesLoading(false);
+        }
       }
     }, (error) => {
       console.error('Error listening to receiver notifications:', error);
+      setResponsesReady(true);
       setResponsesLoading(false);
     });
     
@@ -832,6 +933,24 @@ export default function NotificationsScreen() {
       <View style={styles.centerContainer}>
         <ActivityIndicator size="large" color="#b71c1c" />
         <Text style={styles.loadingText}>Loading notifications...</Text>
+      </View>
+    );
+  }
+
+  if (userRole === 'donor' && !requestsReady) {
+    return (
+      <View style={styles.centerContainer}>
+        <ActivityIndicator size="large" color="#b71c1c" />
+        <Text style={styles.loadingText}>Preparing matches...</Text>
+      </View>
+    );
+  }
+
+  if (userRole === 'receiver' && !responsesReady) {
+    return (
+      <View style={styles.centerContainer}>
+        <ActivityIndicator size="large" color="#b71c1c" />
+        <Text style={styles.loadingText}>Preparing responses...</Text>
       </View>
     );
   }
