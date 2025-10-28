@@ -36,6 +36,18 @@
       "barStyle": "light-content",
       "backgroundColor": "#ffffff"
     },
+    "android": {
+      "permissions": [
+        "ACCESS_COARSE_LOCATION",
+        "ACCESS_FINE_LOCATION"
+      ]
+    },
+    "ios": {
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "BloodLink uses your location to show nearby donors and people who need blood.",
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "BloodLink uses your location to keep your availability updated for nearby donation requests."
+      }
+    },
     "web": {
       "favicon": "./assets/favicon.png"
     }

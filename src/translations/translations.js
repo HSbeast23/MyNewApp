@@ -24,6 +24,7 @@ export const translations = {
     privacyPolicy: 'Privacy Policy',
     languages: 'Languages',
     logout: 'Logout',
+  findDonorMap: 'Find Donor Map',
     
     // Home Screen
     welcome: 'Welcome',
@@ -36,6 +37,7 @@ export const translations = {
     bloodBankServices: 'Blood Bank Services',
     founder: 'Founder',
     referFriend: 'Refer Friend',
+  findDonorHelperText: 'Tap markers to view donor details and keep your location updated so others can find you.',
     
     // Blood Request/Donation
     bloodGroup: 'Blood Group',
@@ -192,6 +194,22 @@ export const translations = {
     requiredBy: 'Required By',
     medicalConditionsLabel: 'Medical Conditions',
     none: 'None',
+
+    // Location & Map
+    enableLocationTitle: 'Share your location',
+    enableLocationSubtitle: 'Turn on location sharing so nearby donors and receivers can connect with you.',
+    enableLocationDescription: 'BloodLink uses your location to display nearby donors and people who need blood. You can disable this anytime from your device settings.',
+    enableLocationButton: 'Enable location sharing',
+    skipForNow: 'Skip for now',
+    locationPermissionNeededTitle: 'Location required',
+    locationPermissionDenied: 'Location access is required to show nearby donors. You can enable it from your device settings.',
+    locationUpdateError: 'Unable to update your location. Please try again.',
+    updatingLocation: 'Updating location...',
+    updateMyLocation: 'Update my location',
+    openInMaps: 'Open in Maps',
+    unableToOpenMaps: 'Could not open maps on this device.',
+    noDonorsNearby: 'No donors are on the map yet. Check back soon!',
+    lastUpdated: 'Last updated',
   },
   
   ta: {
@@ -219,6 +237,7 @@ export const translations = {
     privacyPolicy: 'தனியுரிமை கொள்கை',
     languages: 'மொழிகள்',
     logout: 'வெளியேறு',
+  findDonorMap: 'தானம் செய்பவர் வரைபடை',
     
     // Home Screen
     welcome: 'வரவேற்கிறோம்',
@@ -231,6 +250,7 @@ export const translations = {
     bloodBankServices: 'இரத்த வங்கி சேவைகள்',
     founder: 'நிறுவனர்',
     referFriend: 'நண்பரை பரிந்துரைக்கவும்',
+  findDonorHelperText: 'மார்க்கரைத் தொட்டு தானம் செய்பவர்களின் விவரங்களை பார்க்கவும். மற்றவர்கள் உங்களை காண உங்கள் இருப்பிடத்தை புதுப்பித்து வையுங்கள்.',
     
     // Blood Request/Donation
     bloodGroup: 'இரத்த வகை',
@@ -387,6 +407,22 @@ export const translations = {
     requiredBy: 'தேவையான நேரம்',
     medicalConditionsLabel: 'மருத்துவ நிலைமைகள்',
     none: 'எதுவும் இல்லை',
+
+    // Location & Map
+    enableLocationTitle: 'உங்கள் இருப்பிடத்தை பகிரவும்',
+    enableLocationSubtitle: 'அருகில் உள்ள தானம் செய்பவர்களும் பெறுபவர்களும் உங்களைத் தொடர்பு கொள்ள இடத்தை இயக்கவும்.',
+    enableLocationDescription: 'BloodLink உங்கள் அருகிலுள்ள தானம் செய்பவர்களையும் இரத்தம் தேவைப்படும் நபர்களையும் காட்ட உங்கள் இருப்பிடத்தை பயன்படுத்துகிறது. எப்போது வேண்டுமானாலும் அமைப்புகளில் அதை மாற்றலாம்.',
+    enableLocationButton: 'இருப்பிடத்தை இயக்கவும்',
+    skipForNow: 'பின்னர் செய்யலாம்',
+    locationPermissionNeededTitle: 'இட அனுமதி தேவை',
+    locationPermissionDenied: 'அருகிலுள்ள தானம் செய்பவர்களை பார்க்க இட அணுகல் தேவை. தயவுசெய்து உங்கள் கருவி அமைப்பில் அதை இயலுமைப்படுத்தவும்.',
+    locationUpdateError: 'உங்கள் இருப்பிடத்தை புதுப்பிக்க முடியவில்லை. தயவுசெய்து முயற்சி செய்யவும்.',
+    updatingLocation: 'இருப்பிடத்தை புதுப்பிக்கிறது...',
+    updateMyLocation: 'என் இருப்பிடத்தை புதுப்பிக்கவும்',
+    openInMaps: 'வரைபடத்தில் திறக்கவும்',
+    unableToOpenMaps: 'இக்கருவியில் வரைபடத்தை திறக்க முடியவில்லை.',
+    noDonorsNearby: 'வரைபடத்தில் தானம் செய்பவர்கள் இல்லை. பின்னர் பாருங்கள்!',
+    lastUpdated: 'கடைசியாக புதுப்பித்தது',
   }
 };
 

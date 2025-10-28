@@ -100,7 +100,7 @@ export default function PersonalDetailsScreen() {
       Alert.alert('Success', 'Profile created successfully! Welcome to BloodLink!', [
         {
           text: 'OK',
-          onPress: () => navigation.replace('MainDrawer'),
+          onPress: () => navigation.replace('EnableLocation'),
         },
       ]);
     } catch (error) {

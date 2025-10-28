@@ -21,7 +21,7 @@ import RequestBloodScreen from '../screens/RequestBloodScreen';
 import FounderScreen from '../screens/FounderScreen';
 import MyProfileScreen from '../screens/MyProfileScreen';
 import ReferFriendScreen from '../screens/ReferFriendScreen';
-import DonateHistoryScreen from '../screens/DonateHistoryScreen';
+import FindDonorScreen from '../screens/FindDonorScreen';
 import HospitalServicesScreen from '../screens/HospitalServicesScreen';
 import BloodBankServiceScreen from '../screens/BloodBankServiceScreen';
 import LanguagesScreen from '../screens/LanguagesScreen';
@@ -57,8 +57,8 @@ export default function DrawerNavigator() {
       <Drawer.Screen name="RequestBlood" component={RequestBloodScreen} />
       <Drawer.Screen name="Founder" component={FounderScreen} />
       <Drawer.Screen name="My Profile" component={MyProfileScreen} />
-      <Drawer.Screen name="Refer Friend" component={ReferFriendScreen} />
-      <Drawer.Screen name="Donate History" component={DonateHistoryScreen} />
+  <Drawer.Screen name="Refer Friend" component={ReferFriendScreen} />
+  <Drawer.Screen name="Find Donor Map" component={FindDonorScreen} />
       <Drawer.Screen name="Hospital Services" component={HospitalServicesScreen} />
       <Drawer.Screen name="Blood Bank Service" component={BloodBankServiceScreen} />
       <Drawer.Screen name="Languages" component={LanguagesScreen} />
@@ -96,7 +96,7 @@ function CustomDrawerContent(props) {
           {props.state.routeNames.map((name, index) => (
             <DrawerItem
               key={index}
-              label={getLabel(name)}
+              label={getLabel(name, t)}
               icon={({ color, size }) => getIcon(name, color, size)}
               labelStyle={{ color: '#fff' }}
               onPress={() => props.navigation.navigate(name)}
@@ -109,10 +109,11 @@ function CustomDrawerContent(props) {
 }
 
 // ✅ Label names
-function getLabel(name) {
+function getLabel(name, t) {
   switch (name) {
-    case 'DonateBlood': return 'Donate Blood';
-    case 'RequestBlood': return 'Request Blood';
+    case 'DonateBlood': return t('donateBlood');
+    case 'RequestBlood': return t('requestBlood');
+    case 'Find Donor Map': return t('findDonorMap');
     default: return name;
   }
 }
@@ -128,7 +129,7 @@ function getIcon(name, color, size) {
     case 'USavers Near': return <Ionicons name="location-outline" size={size} color={color} />;
     case 'My Profile': return <Ionicons name="person-circle-outline" size={size} color={color} />;
     case 'Refer Friend': return <Ionicons name="person-add-outline" size={size} color={color} />;
-    case 'Donate History': return <Ionicons name="time-outline" size={size} color={color} />;
+  case 'Find Donor Map': return <Ionicons name="map-outline" size={size} color={color} />;
     case 'Hospital Services': return <MaterialIcons name="local-hospital" size={size} color={color} />;
     case 'Blood Bank Service': return <Ionicons name="water-outline" size={size} color={color} />;
     case 'Languages': return <Ionicons name="language-outline" size={size} color={color} />;

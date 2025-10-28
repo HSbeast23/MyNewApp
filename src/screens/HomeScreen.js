@@ -255,10 +255,10 @@ export default function HomeScreen({ navigation, route }) {
 
           <TouchableOpacity
             style={styles.iconButton}
-            onPress={() => navigation.navigate('Donate History')}
+            onPress={() => navigation.navigate('Find Donor Map')}
           >
-            <MaterialIcons name="history" size={36} color="#ff5722" />
-            <Text style={styles.iconLabel}>{t('donateHistory')}</Text>
+            <Ionicons name="map-outline" size={36} color="#ff5722" />
+            <Text style={styles.iconLabel}>{t('findDonorMap')}</Text>
           </TouchableOpacity>
         </View>
         
