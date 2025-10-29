@@ -40,7 +40,13 @@
       "permissions": [
         "ACCESS_COARSE_LOCATION",
         "ACCESS_FINE_LOCATION"
-      ]
+      ],
+      "package": "com.haarhish23.MyNewApp",
+      "config": {
+        "googleMaps": {
+          "apiKey": "AIzaSyD1bqjTHy6PJGbWP8yz-XKGJ6ws18f4Xew"
+        }
+      }
     },
     "ios": {
       "infoPlist": {
@@ -50,7 +56,11 @@
     },
     "web": {
       "favicon": "./assets/favicon.png"
+    },
+    "extra": {
+      "eas": {
+        "projectId": "1248e7ca-b6b9-4f8b-b4cc-ac5944f6254a"
+      }
     }
-    
   }
 }

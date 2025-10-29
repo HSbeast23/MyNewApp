@@ -25,6 +25,8 @@ const defaultRegion = {
   longitudeDelta: 5,
 };
 
+const OSM_TILE_URL = 'https://tile.openstreetmap.de/{z}/{x}/{y}.png';
+
 export default function FindDonorScreen() {
   const { t } = useTranslation();
   const mapRef = useRef(null);
@@ -188,9 +190,15 @@ export default function FindDonorScreen() {
           style={StyleSheet.absoluteFill}
           showsUserLocation
           showsCompass
+          mapType="none"
           initialRegion={defaultRegion}
         >
-          <UrlTile urlTemplate="https://tile.openstreetmap.org/{z}/{x}/{y}.png" maximumZ={19} flipY={false} />
+          <UrlTile
+            urlTemplate={OSM_TILE_URL}
+            maximumZ={19}
+            zIndex={-1}
+            flipY={false}
+          />
 
           {donors.map((user) => (
             <Marker
