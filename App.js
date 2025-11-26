@@ -1,15 +1,13 @@
 import React, { useCallback, useEffect, useState, useRef } from 'react';
-import { View, ActivityIndicator, Platform } from 'react-native';
+import { View, ActivityIndicator } from 'react-native';
 import * as SplashScreen from 'expo-splash-screen';
 import { NavigationContainer } from '@react-navigation/native';
 import { useFonts, Poppins_400Regular, Poppins_500Medium, Poppins_700Bold } from '@expo-google-fonts/poppins';
 import { Provider as PaperProvider, DefaultTheme } from 'react-native-paper';
 import { Asset } from 'expo-asset';
-import LottieView from 'lottie-react-native';
 
 import AppNavigator from './src/navigation/AppNavigator';
 import { LanguageProvider } from './src/contexts/LanguageContext';
-import { auth } from './src/services/auth';
 
 SplashScreen.preventAutoHideAsync(); // Keep splash screen visible while loading
 
@@ -25,9 +23,7 @@ const theme = {
 
 export default function App() {
   const [appIsReady, setAppIsReady] = useState(false);
-  const [showLottieSplash, setShowLottieSplash] = useState(true);
   const navigationRef = useRef(null);
-  const lottieRef = useRef(null);
 
   // Load fonts
   const [fontsLoaded, fontError] = useFonts({
@@ -128,11 +124,6 @@ export default function App() {
     return () => clearTimeout(fallbackTimer);
   }, [fontsLoaded, fontError, cacheImages]);
 
-  // Handle Lottie splash animation completion
-  const handleLottieAnimationFinish = useCallback(() => {
-    setShowLottieSplash(false);
-  }, []);
-
   // Prevent UI flicker — hide splash only after root view is laid out
   const onLayoutRootView = useCallback(async () => {
     if (appIsReady) {
@@ -156,22 +147,6 @@ export default function App() {
         <ActivityIndicator size="large" color="#b71c1c" />
       </View>
     ); // Fallback loading indicator in case splash doesn't show
-  }
-  
-  // Show Lottie splash animation after the native splash
-  if (showLottieSplash) {
-    return (
-      <View style={{ flex: 1, backgroundColor: '#ffffff', alignItems: 'center', justifyContent: 'center' }}>
-        <LottieView
-          ref={lottieRef}
-          source={require('./assets/animations/blood_splash.json')}
-          autoPlay
-          loop={false}
-          style={{ width: 300, height: 300 }}
-          onAnimationFinish={handleLottieAnimationFinish}
-        />
-      </View>
-    );
   }
   
   return (
