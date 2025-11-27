@@ -353,6 +353,7 @@ export default function NotificationsScreen() {
   // Listen for matching blood requests (for donors)
   useEffect(() => {
     let unsubscribe;
+    let cancelled = false;
 
     if (!userRole || userRole !== 'donor' || !userCity || !userBloodGroup || !auth.currentUser?.uid) {
       setRequests([]);
@@ -372,79 +373,111 @@ export default function NotificationsScreen() {
       where('status', '==', 'pending')
     );
 
+    const buildDonorMatches = (docs) =>
+      docs
+        .map((docSnapshot) => {
+          const data = docSnapshot.data();
+          if (!hasEssentialRequestData(data)) {
+            return null;
+          }
+
+          const seenBy = Array.isArray(data.seenBy) ? data.seenBy : [];
+          const hasResponded = Array.isArray(data.responses)
+            ? data.responses.some((response) => response.donorUid === auth.currentUser?.uid)
+            : false;
+
+          if (hasResponded) {
+            return null;
+          }
+
+          return {
+            id: docSnapshot.id,
+            name: ensureText(data.name, 'Anonymous Patient'),
+            bloodGroup: ensureText(data.bloodGroup, 'Unknown'),
+            bloodUnits: ensureNumberText(data.bloodUnits),
+            city: ensureText(data.city, 'Not specified'),
+            purpose: ensureText(data.purpose, 'Medical need'),
+            hospital: ensureText(data.hospital, ''),
+            mobile: ensureText(data.mobile, ''),
+            requiredDateTime: data.requiredDateTime || null,
+            createdAt: data.createdAt || null,
+            status: ensureText(data.status, 'pending'),
+            uid: data.uid || '',
+            formattedDate: formatDateTime(data.requiredDateTime) || 'As soon as possible',
+            isNew: !seenBy.includes(auth.currentUser?.uid),
+            isHighlighted: docSnapshot.id === route?.params?.highlightRequestId,
+          };
+        })
+        .filter(Boolean)
+        .sort((a, b) => {
+          const aTime = a.requiredDateTime?.toDate ? a.requiredDateTime.toDate() : new Date(a.requiredDateTime || Date.now());
+          const bTime = b.requiredDateTime?.toDate ? b.requiredDateTime.toDate() : new Date(b.requiredDateTime || Date.now());
+          return aTime - bTime;
+        });
+
+    const applySnapshot = (docs) => {
+      const formatted = buildDonorMatches(docs);
+      setRequests(formatted);
+      setNewNotificationCount(formatted.filter((item) => item.isNew).length);
+    };
+
+    const fetchInitial = async () => {
+      try {
+        const snapshot = await getDocs(donorQuery);
+        if (!cancelled) {
+          applySnapshot(snapshot.docs);
+          setRequestsReady(true);
+          setRequestsLoading(false);
+        }
+      } catch (error) {
+        if (!cancelled) {
+          console.error('Error preloading donor notifications:', error);
+          setRequests([]);
+          setRequestsReady(true);
+          setRequestsLoading(false);
+        }
+      }
+    };
+
+    fetchInitial();
+
     unsubscribe = onSnapshot(
       donorQuery,
       (snapshot) => {
         try {
-          const formatted = snapshot.docs
-            .map((docSnapshot) => {
-              const data = docSnapshot.data();
-              if (!hasEssentialRequestData(data)) {
-                return null;
-              }
-
-              const seenBy = Array.isArray(data.seenBy) ? data.seenBy : [];
-              const hasResponded = Array.isArray(data.responses)
-                ? data.responses.some((response) => response.donorUid === auth.currentUser?.uid)
-                : false;
-
-              if (hasResponded) {
-                return null;
-              }
-
-              return {
-                id: docSnapshot.id,
-                name: ensureText(data.name, 'Anonymous Patient'),
-                bloodGroup: ensureText(data.bloodGroup, 'Unknown'),
-                bloodUnits: ensureNumberText(data.bloodUnits),
-                city: ensureText(data.city, 'Not specified'),
-                purpose: ensureText(data.purpose, 'Medical need'),
-                hospital: ensureText(data.hospital, ''),
-                mobile: ensureText(data.mobile, ''),
-                requiredDateTime: data.requiredDateTime || null,
-                createdAt: data.createdAt || null,
-                status: ensureText(data.status, 'pending'),
-                uid: data.uid || '',
-                formattedDate: formatDateTime(data.requiredDateTime) || 'As soon as possible',
-                isNew: !seenBy.includes(auth.currentUser?.uid),
-                isHighlighted: docSnapshot.id === route?.params?.highlightRequestId,
-              };
-            })
-            .filter(Boolean)
-            .sort((a, b) => {
-              const aTime = a.requiredDateTime?.toDate ? a.requiredDateTime.toDate() : new Date(a.requiredDateTime || Date.now());
-              const bTime = b.requiredDateTime?.toDate ? b.requiredDateTime.toDate() : new Date(b.requiredDateTime || Date.now());
-              return aTime - bTime;
-            });
-
-          setRequests(formatted);
-          setNewNotificationCount(formatted.filter((item) => item.isNew).length);
+          applySnapshot(snapshot.docs);
         } catch (listenerError) {
           console.error('Error processing donor notifications:', listenerError);
           setRequests([]);
         } finally {
-          setRequestsReady(true);
-          setRequestsLoading(false);
+          if (!cancelled) {
+            setRequestsReady(true);
+            setRequestsLoading(false);
+          }
         }
       },
       (error) => {
-        console.error('Error listening to donor notifications:', error);
-        setRequests([]);
-        setRequestsReady(true);
-        setRequestsLoading(false);
+        if (!cancelled) {
+          console.error('Error listening to donor notifications:', error);
+          setRequests([]);
+          setRequestsReady(true);
+          setRequestsLoading(false);
+        }
       }
     );
 
     return () => {
+      cancelled = true;
       if (unsubscribe) {
         unsubscribe();
       }
     };
-  }, [userRole, userCity, userBloodGroup, auth.currentUser?.uid, route?.params]);
+  }, [userRole, userCity, userBloodGroup, auth.currentUser?.uid, route?.params, ensureNumberText, ensureText, formatDateTime, hasEssentialRequestData]);
 
   // Listen for donor responses (for receivers)
   useEffect(() => {
     let unsubscribe;
+    let cancelled = false;
 
     if (!userRole || userRole !== 'receiver' || !auth.currentUser?.uid) {
       setResponses([]);
@@ -461,82 +494,112 @@ export default function NotificationsScreen() {
       where('uid', '==', auth.currentUser.uid)
     );
 
+    const buildReceiverResponses = (docs) =>
+      docs.flatMap((docSnapshot) => {
+        const data = docSnapshot.data();
+        if (!Array.isArray(data.responses) || data.responses.length === 0) {
+          return [];
+        }
+
+        return data.responses
+          .map((response, index) => {
+            if (!hasEssentialResponseData(response, data)) {
+              return null;
+            }
+
+            return {
+              id: `${docSnapshot.id}_${index}`,
+              requestId: docSnapshot.id,
+              donorUid: response.donorUid || '',
+              donorName: ensureText(response.donorName, 'Anonymous Donor'),
+              donorMobile: ensureText(response.donorMobile, ''),
+              donorBloodGroup: ensureText(response.donorBloodGroup || data.bloodGroup, 'Unknown'),
+              donorCity: ensureText(response.donorCity || data.city, 'Not specified'),
+              status: ensureText(response.status, 'pending'),
+              respondedAt: response.respondedAt || new Date(),
+              seenByReceiver: !!response.seenByReceiver,
+              formattedResponseTime: formatDateTime(response.respondedAt) || 'Recently',
+              requestData: {
+                purpose: ensureText(data.purpose, 'Medical need'),
+                bloodGroup: ensureText(data.bloodGroup, 'Unknown'),
+                bloodUnits: ensureNumberText(data.bloodUnits, '1'),
+                city: ensureText(data.city, 'Not specified'),
+                hospital: ensureText(data.hospital, 'Not specified'),
+                formattedRequiredTime: formatDateTime(data.requiredDateTime) || 'As soon as possible',
+                status: ensureText(data.status, 'pending'),
+              },
+              isHighlighted:
+                docSnapshot.id === route?.params?.highlightRequestId &&
+                response.donorName === route?.params?.donorName &&
+                response.status === route?.params?.status,
+            };
+          })
+          .filter(Boolean);
+      });
+
+    const applySnapshot = (docs) => {
+      const sorted = buildReceiverResponses(docs).sort((a, b) => {
+        const aTime = a.respondedAt?.toDate ? a.respondedAt.toDate() : new Date(a.respondedAt || 0);
+        const bTime = b.respondedAt?.toDate ? b.respondedAt.toDate() : new Date(b.respondedAt || 0);
+        return bTime - aTime;
+      });
+
+      setResponses(sorted);
+      setNewNotificationCount(sorted.filter((item) => !item.seenByReceiver).length);
+    };
+
+    const fetchInitial = async () => {
+      try {
+        const snapshot = await getDocs(receiverQuery);
+        if (!cancelled) {
+          applySnapshot(snapshot.docs);
+          setResponsesReady(true);
+          setResponsesLoading(false);
+        }
+      } catch (error) {
+        if (!cancelled) {
+          console.error('Error preloading receiver notifications:', error);
+          setResponses([]);
+          setResponsesReady(true);
+          setResponsesLoading(false);
+        }
+      }
+    };
+
+    fetchInitial();
+
     unsubscribe = onSnapshot(
       receiverQuery,
       (snapshot) => {
         try {
-          const aggregated = snapshot.docs.flatMap((docSnapshot) => {
-            const data = docSnapshot.data();
-            if (!Array.isArray(data.responses) || data.responses.length === 0) {
-              return [];
-            }
-
-            return data.responses
-              .map((response, index) => {
-                if (!hasEssentialResponseData(response, data)) {
-                  return null;
-                }
-
-                return {
-                  id: `${docSnapshot.id}_${index}`,
-                  requestId: docSnapshot.id,
-                  donorUid: response.donorUid || '',
-                  donorName: ensureText(response.donorName, 'Anonymous Donor'),
-                  donorMobile: ensureText(response.donorMobile, ''),
-                  donorBloodGroup: ensureText(response.donorBloodGroup || data.bloodGroup, 'Unknown'),
-                  donorCity: ensureText(response.donorCity || data.city, 'Not specified'),
-                  status: ensureText(response.status, 'pending'),
-                  respondedAt: response.respondedAt || new Date(),
-                  seenByReceiver: !!response.seenByReceiver,
-                  formattedResponseTime: formatDateTime(response.respondedAt) || 'Recently',
-                  requestData: {
-                    purpose: ensureText(data.purpose, 'Medical need'),
-                    bloodGroup: ensureText(data.bloodGroup, 'Unknown'),
-                    bloodUnits: ensureNumberText(data.bloodUnits, '1'),
-                    city: ensureText(data.city, 'Not specified'),
-                    hospital: ensureText(data.hospital, 'Not specified'),
-                    formattedRequiredTime: formatDateTime(data.requiredDateTime) || 'As soon as possible',
-                    status: ensureText(data.status, 'pending'),
-                  },
-                  isHighlighted:
-                    docSnapshot.id === route?.params?.highlightRequestId &&
-                    response.donorName === route?.params?.donorName &&
-                    response.status === route?.params?.status,
-                };
-              })
-              .filter(Boolean);
-          });
-
-          const sorted = aggregated.sort((a, b) => {
-            const aTime = a.respondedAt?.toDate ? a.respondedAt.toDate() : new Date(a.respondedAt || 0);
-            const bTime = b.respondedAt?.toDate ? b.respondedAt.toDate() : new Date(b.respondedAt || 0);
-            return bTime - aTime;
-          });
-
-          setResponses(sorted);
-          setNewNotificationCount(sorted.filter((item) => !item.seenByReceiver).length);
+          applySnapshot(snapshot.docs);
         } catch (listenerError) {
           console.error('Error processing receiver notifications:', listenerError);
           setResponses([]);
         } finally {
-          setResponsesReady(true);
-          setResponsesLoading(false);
+          if (!cancelled) {
+            setResponsesReady(true);
+            setResponsesLoading(false);
+          }
         }
       },
       (error) => {
-        console.error('Error listening to receiver notifications:', error);
-        setResponses([]);
-        setResponsesReady(true);
-        setResponsesLoading(false);
+        if (!cancelled) {
+          console.error('Error listening to receiver notifications:', error);
+          setResponses([]);
+          setResponsesReady(true);
+          setResponsesLoading(false);
+        }
       }
     );
 
     return () => {
+      cancelled = true;
       if (unsubscribe) {
         unsubscribe();
       }
     };
-  }, [userRole, auth.currentUser?.uid, route?.params]);
+  }, [userRole, auth.currentUser?.uid, route?.params, ensureNumberText, ensureText, formatDateTime, hasEssentialResponseData]);
 
   // Helper function to format dates
   const formatDateTime = (dateValue) => {
@@ -1478,5 +1541,36 @@ const styles = StyleSheet.create({
     fontFamily: 'Poppins_600SemiBold',
     fontSize: 14,
     color: '#fff',
+  },
+  skeletonCard: {
+    opacity: 0.9,
+  },
+  skeletonBadge: {
+    height: 18,
+    backgroundColor: '#f0f0f0',
+    borderRadius: 4,
+    marginBottom: 12,
+  },
+  skeletonBody: {
+    gap: 8,
+  },
+  skeletonLine: {
+    height: 12,
+    backgroundColor: '#e0e0e0',
+    borderRadius: 4,
+    marginBottom: 6,
+  },
+  skeletonButtonRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingBottom: 16,
+    gap: 12,
+  },
+  skeletonButton: {
+    flex: 1,
+    height: 36,
+    backgroundColor: '#e0e0e0',
+    borderRadius: 6,
   }
 });
