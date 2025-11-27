@@ -16,13 +16,47 @@ import { collection, query, where, onSnapshot, updateDoc, doc, getDoc, getDocs, 
 import { db, auth } from '../services/auth';
 import { useTranslation } from '../hooks/useTranslation';
 import { useNavigation, useRoute, useFocusEffect } from '@react-navigation/native';
-import {
-  useFonts,
-  Poppins_400Regular,
-  Poppins_500Medium,
-  Poppins_600SemiBold,
-  Poppins_700Bold
-} from '@expo-google-fonts/poppins';
+
+const skeletonPlaceholders = [0, 1];
+
+const SkeletonLine = ({ width = '100%', height = 12 }) => (
+  <View style={[styles.skeletonLine, { width, height }]} />
+);
+
+const renderRequestSkeletons = () =>
+  skeletonPlaceholders.map((index) => (
+    <View key={`request-skeleton-${index}`} style={[styles.card, styles.requestCard, styles.skeletonCard]}>
+      <View style={[styles.skeletonBadge, { width: 120 }]} />
+      <View style={styles.skeletonBody}>
+        <SkeletonLine width="70%" />
+        <SkeletonLine width="50%" />
+        <SkeletonLine width="90%" />
+        <SkeletonLine width="60%" />
+        <SkeletonLine width="80%" />
+      </View>
+      <View style={styles.skeletonButtonRow}>
+        <View style={styles.skeletonButton} />
+        <View style={styles.skeletonButton} />
+      </View>
+    </View>
+  ));
+
+const renderResponseSkeletons = () =>
+  skeletonPlaceholders.map((index) => (
+    <View key={`response-skeleton-${index}`} style={[styles.card, styles.responseCard, styles.skeletonCard]}>
+      <View style={[styles.skeletonBadge, { width: 150 }]} />
+      <View style={styles.skeletonBody}>
+        <SkeletonLine width="80%" />
+        <SkeletonLine width="60%" />
+        <SkeletonLine width="55%" />
+        <SkeletonLine width="75%" />
+        <SkeletonLine width="45%" />
+      </View>
+      <View style={styles.skeletonButtonRow}>
+        <View style={[styles.skeletonButton, { width: '60%' }]} />
+      </View>
+    </View>
+  ));
 
 export default function NotificationsScreen() {
   const { t } = useTranslation();
@@ -42,9 +76,6 @@ export default function NotificationsScreen() {
   const [responsesLoading, setResponsesLoading] = useState(true);
   const [requestsReady, setRequestsReady] = useState(false);
   const [responsesReady, setResponsesReady] = useState(false);
-  const lastProcessStartTime = useRef(Date.now());
-  const requestsRef = useRef([]);
-  const responsesRef = useRef([]);
 
   const ensureText = useCallback((value, fallback) => {
     if (typeof value === 'string') {
@@ -70,8 +101,7 @@ export default function NotificationsScreen() {
     if (!data) return false;
     const hasLocation = typeof data.city === 'string' && data.city.trim().length > 0;
     const hasBloodGroup = typeof data.bloodGroup === 'string' && data.bloodGroup.trim().length > 0;
-    const hasPurpose = typeof data.purpose === 'string' && data.purpose.trim().length > 0;
-    return hasLocation && hasBloodGroup && hasPurpose;
+    return hasLocation && hasBloodGroup;
   }, []);
 
   const hasEssentialResponseData = useCallback((response, requestData) => {
@@ -111,12 +141,6 @@ export default function NotificationsScreen() {
       });
   };
 
-  // Load fonts
-  const [fontsLoaded] = useFonts({
-    Poppins_400Regular,
-    Poppins_600SemiBold,
-  });
-
   // Mark all notifications as seen when screen comes into focus
   useFocusEffect(
     useCallback(() => {
@@ -136,15 +160,6 @@ export default function NotificationsScreen() {
       }
     }, [userRole, userCity, userBloodGroup, auth.currentUser?.uid, responses.length, requests.length])
   );
-
-  useEffect(() => {
-    requestsRef.current = requests;
-  }, [requests]);
-
-  useEffect(() => {
-    responsesRef.current = responses;
-  }, [responses]);
-
 
   // Function to mark all notifications as seen (with debouncing)
   const markAllAsSeen = async () => {
@@ -337,384 +352,190 @@ export default function NotificationsScreen() {
 
   // Listen for matching blood requests (for donors)
   useEffect(() => {
+    let unsubscribe;
+
     if (!userRole || userRole !== 'donor' || !userCity || !userBloodGroup || !auth.currentUser?.uid) {
       setRequests([]);
-      // End loading state immediately
+      setNewNotificationCount(0);
       setRequestsLoading(false);
-      setRequestsReady(true);
-      if (__DEV__) {
-        console.log('Donor notifications disabled:', { userRole, userCity, userBloodGroup, uid: auth.currentUser?.uid });
-      }
-      return;
-    }
-    
-    // Only show loading state if we don't have any existing data
-    if (requests.length === 0) {
-      setRequestsLoading(true);
       setRequestsReady(false);
+      return () => {};
     }
-    
-    if (__DEV__) {
-      console.log('Setting up donor notifications listener for user:', auth.currentUser.uid, { userCity, userBloodGroup });
-    }
-    setRequestsLoading(prev => prev || requests.length === 0);
-    
-    // Query for matching blood requests
-    const q = query(
+
+    setRequestsReady(false);
+    setRequestsLoading(true);
+
+    const donorQuery = query(
       collection(db, 'Bloodreceiver'),
       where('bloodGroup', '==', userBloodGroup),
       where('city', '==', userCity),
       where('status', '==', 'pending')
     );
-    
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      let keepLoading = false;
-      try {
-        if (__DEV__) {
-          console.log('Donor notifications snapshot received, size:', snapshot.size);
-        }
-        
-        // Immediately check if snapshot is empty to guarantee fast loading state transition
-        if (snapshot.empty) {
-          if (__DEV__) {
-            console.log('No matching donor requests found - ending load state');
-          }
+
+    unsubscribe = onSnapshot(
+      donorQuery,
+      (snapshot) => {
+        try {
+          const formatted = snapshot.docs
+            .map((docSnapshot) => {
+              const data = docSnapshot.data();
+              if (!hasEssentialRequestData(data)) {
+                return null;
+              }
+
+              const seenBy = Array.isArray(data.seenBy) ? data.seenBy : [];
+              const hasResponded = Array.isArray(data.responses)
+                ? data.responses.some((response) => response.donorUid === auth.currentUser?.uid)
+                : false;
+
+              if (hasResponded) {
+                return null;
+              }
+
+              return {
+                id: docSnapshot.id,
+                name: ensureText(data.name, 'Anonymous Patient'),
+                bloodGroup: ensureText(data.bloodGroup, 'Unknown'),
+                bloodUnits: ensureNumberText(data.bloodUnits),
+                city: ensureText(data.city, 'Not specified'),
+                purpose: ensureText(data.purpose, 'Medical need'),
+                hospital: ensureText(data.hospital, ''),
+                mobile: ensureText(data.mobile, ''),
+                requiredDateTime: data.requiredDateTime || null,
+                createdAt: data.createdAt || null,
+                status: ensureText(data.status, 'pending'),
+                uid: data.uid || '',
+                formattedDate: formatDateTime(data.requiredDateTime) || 'As soon as possible',
+                isNew: !seenBy.includes(auth.currentUser?.uid),
+                isHighlighted: docSnapshot.id === route?.params?.highlightRequestId,
+              };
+            })
+            .filter(Boolean)
+            .sort((a, b) => {
+              const aTime = a.requiredDateTime?.toDate ? a.requiredDateTime.toDate() : new Date(a.requiredDateTime || Date.now());
+              const bTime = b.requiredDateTime?.toDate ? b.requiredDateTime.toDate() : new Date(b.requiredDateTime || Date.now());
+              return aTime - bTime;
+            });
+
+          setRequests(formatted);
+          setNewNotificationCount(formatted.filter((item) => item.isNew).length);
+        } catch (listenerError) {
+          console.error('Error processing donor notifications:', listenerError);
           setRequests([]);
+        } finally {
           setRequestsReady(true);
           setRequestsLoading(false);
-          return;
         }
-        
-        const matchedRequests = [];
-        let newCount = 0;
-        let hasIncompleteDocs = false;
-        
-        snapshot.forEach(doc => {
-          const data = doc.data();
-          if (__DEV__) {
-            console.log('📋 Processing donor match doc:', doc.id, 'data:', 
-              JSON.stringify({
-                name: data.name || 'MISSING',
-                bloodGroup: data.bloodGroup || 'MISSING',
-                city: data.city || 'MISSING'
-              })
-            );
-          }
-          const seenBy = data.seenBy || [];
-          
-          // Check if this donor has already responded
-          const hasResponded = data.responses?.some(r => r.donorUid === auth.currentUser?.uid);
-          
-          if (!hasResponded) {
-            if (!hasEssentialRequestData(data)) {
-              hasIncompleteDocs = true;
-              if (__DEV__) {
-                console.log('⏳ Skipping incomplete donor match doc:', doc.id);
-              }
-              return;
-            }
-            const isNew = !seenBy.includes(auth.currentUser?.uid);
-            
-            // Format required date/time
-            const formattedDate = formatDateTime(data.requiredDateTime) || 'As soon as possible';
-            
-            // Ensure all required fields have default values to prevent blank cards
-            matchedRequests.push({
-              id: doc.id,
-              name: ensureText(data.name, 'Anonymous Patient'),
-              bloodGroup: ensureText(data.bloodGroup, 'Unknown'),
-              bloodUnits: ensureNumberText(data.bloodUnits),
-              city: ensureText(data.city, 'Not specified'),
-              purpose: ensureText(data.purpose, 'Medical need'),
-              hospital: ensureText(data.hospital, ''),
-              mobile: ensureText(data.mobile, ''),
-              requiredDateTime: data.requiredDateTime || null,
-              createdAt: data.createdAt || null,
-              status: ensureText(data.status, 'pending'),
-              uid: data.uid || '',
-              responses: Array.isArray(data.responses) ? data.responses : [],
-              seenBy: seenBy,
-              formattedDate,
-              isNew,
-              isHighlighted: doc.id === route?.params?.highlightRequestId
-            });
-            
-            if (isNew) {
-              newCount++;
-            }
-          }
-        });
-        
-        if (__DEV__) {
-          console.log('Matched requests found:', matchedRequests.length, 'New:', newCount);
-        }
-
-        if (matchedRequests.length === 0 && hasIncompleteDocs) {
-          if (__DEV__) {
-            console.log('Deferring donor cards render until Firestore doc is fully populated');
-          }
-          if (requestsRef.current.length === 0) {
-            keepLoading = true;
-            setRequestsReady(false);
-            setRequestsLoading(true);
-          } else {
-            keepLoading = false;
-          }
-          return;
-        }
-        
-        // Sort by urgency (closest date first)
-        matchedRequests.sort((a, b) => {
-          if (!a.requiredDateTime && !b.requiredDateTime) return 0;
-          if (!a.requiredDateTime) return 1;
-          if (!b.requiredDateTime) return -1;
-          
-          const aDate = a.requiredDateTime.toDate ? a.requiredDateTime.toDate() : new Date(a.requiredDateTime);
-          const bDate = b.requiredDateTime.toDate ? b.requiredDateTime.toDate() : new Date(b.requiredDateTime);
-          
-          return aDate - bDate;
-        });
-        
-        setRequests(matchedRequests);
-        setNewNotificationCount(newCount);
+      },
+      (error) => {
+        console.error('Error listening to donor notifications:', error);
+        setRequests([]);
         setRequestsReady(true);
-      } catch (error) {
-        console.error('Error processing donor notifications:', error);
-      } finally {
-        if (!keepLoading) {
-          setRequestsLoading(false);
-        }
+        setRequestsLoading(false);
       }
-    }, (error) => {
-      console.error('Error listening to donor notifications:', error);
-      setRequestsReady(true);
-      setRequestsLoading(false);
-    });
-    
-    return () => unsubscribe();
+    );
+
+    return () => {
+      if (unsubscribe) {
+        unsubscribe();
+      }
+    };
   }, [userRole, userCity, userBloodGroup, auth.currentUser?.uid, route?.params]);
 
   // Listen for donor responses (for receivers)
   useEffect(() => {
+    let unsubscribe;
+
     if (!userRole || userRole !== 'receiver' || !auth.currentUser?.uid) {
       setResponses([]);
-      // End loading state immediately
       setResponsesLoading(false);
-      setResponsesReady(true);
-      if (__DEV__) {
-        console.log('Receiver notifications disabled:', { userRole, uid: auth.currentUser?.uid });
-      }
-      return;
-    }
-    
-    if (__DEV__) {
-      console.log('Setting up receiver notifications listener for user:', auth.currentUser.uid);
-    }
-    
-    // Only show loading state if we don't have any existing data
-    if (responses.length === 0) {
-      setResponsesLoading(true);
       setResponsesReady(false);
+      return () => {};
     }
-    
-    // Query for user's blood requests
-    const q = query(
+
+    setResponsesReady(false);
+    setResponsesLoading(true);
+
+    const receiverQuery = query(
       collection(db, 'Bloodreceiver'),
       where('uid', '==', auth.currentUser.uid)
     );
-    
-    const unsubscribe = onSnapshot(q, async (snapshot) => {
-      // Record processing start time
-      lastProcessStartTime.current = Date.now();
-      let keepLoading = false;
-      
-      try {
-        if (__DEV__) {
-          console.log('Receiver notifications snapshot received, size:', snapshot.size);
-        }
-  const allResponses = [];
-  let newCount = 0;
-  let hasIncompleteDocs = false;
-        
-        snapshot.forEach(doc => {
-          const data = doc.data();
-          if (__DEV__) {
-            console.log('Request document:', doc.id, 'has responses:', data.responses?.length || 0);
-          }
-          
-          if (!data.responses || data.responses.length === 0) return;
-          
-          // Track unique donors to prevent duplicates
-          const seenDonors = new Set();
-          
-          // Process each response
-          data.responses.forEach((response, index) => {
-            // Skip duplicate responses from same donor
-            if (response.donorUid && seenDonors.has(response.donorUid)) {
-              if (__DEV__) {
-                console.log('Skipping duplicate response from donor:', response.donorUid);
-              }
-              return;
+
+    unsubscribe = onSnapshot(
+      receiverQuery,
+      (snapshot) => {
+        try {
+          const aggregated = snapshot.docs.flatMap((docSnapshot) => {
+            const data = docSnapshot.data();
+            if (!Array.isArray(data.responses) || data.responses.length === 0) {
+              return [];
             }
-            if (__DEV__) {
-              console.log('📋 Processing receiver response:', doc.id, 'index:', index, 'data:',
-                JSON.stringify({
-                  donorName: response.donorName || 'MISSING',
-                  donorBloodGroup: response.donorBloodGroup || data.bloodGroup || 'MISSING',
-                  status: response.status || 'MISSING'
-                })
-              );
-            }
-            if (response.donorUid) {
-              seenDonors.add(response.donorUid);
-            }
-            if (!hasEssentialResponseData(response, data)) {
-              hasIncompleteDocs = true;
-              if (__DEV__) {
-                console.log('⏳ Skipping incomplete response for doc:', doc.id, 'index:', index);
-              }
-              return;
-            }
-            const formattedResponseTime = formatDateTime(response.respondedAt) || 'Recently';
-            const formattedRequiredTime = formatDateTime(data.requiredDateTime) || 'As soon as possible';
-            
-            // Ensure all required fields have default values
-            const responseItem = {
-              id: `${doc.id}_${index}`,
-              requestId: doc.id || `req-${Math.random().toString(36).substring(2, 9)}`,
-              donorUid: response.donorUid || '',
-              donorName: ensureText(response.donorName, 'Anonymous Donor'),
-              donorMobile: ensureText(response.donorMobile, ''),
-              donorBloodGroup: ensureText(response.donorBloodGroup || data.bloodGroup, 'Unknown'),
-              donorCity: ensureText(response.donorCity || data.city, 'Not specified'),
-              status: ensureText(response.status, 'pending'),
-              respondedAt: response.respondedAt || new Date(),
-              seenByReceiver: response.seenByReceiver || false,
-              formattedResponseTime: ensureText(formattedResponseTime, 'Recently'),
-              requestData: {
-                purpose: ensureText(data.purpose, 'Medical need'),
-                bloodGroup: ensureText(data.bloodGroup, 'Unknown'),
-                bloodUnits: ensureNumberText(data.bloodUnits, '1'),
-                city: ensureText(data.city, 'Not specified'),
-                hospital: ensureText(data.hospital, 'Not specified'),
-                requiredDateTime: data.requiredDateTime || new Date(),
-                formattedRequiredTime: ensureText(formattedRequiredTime, 'As soon as possible'),
-                status: ensureText(data.status, 'pending')
-              },
-              isHighlighted: !!(
-                doc.id === route?.params?.highlightRequestId && 
-                response.donorName === route?.params?.donorName &&
-                response.status === route?.params?.status
-              )
-            };
-            
-            allResponses.push(responseItem);
-            
-            // Count unseen responses
-            if (!response.seenByReceiver) {
-              newCount++;
-            }
-            
-            // Debug log for first response
-            if (allResponses.length === 1) {
-              if (__DEV__) {
-                console.log('First response item:', {
-                  donorName: responseItem.donorName,
-                  donorMobile: responseItem.donorMobile,
-                  donorBloodGroup: responseItem.donorBloodGroup,
-                  bloodGroup: responseItem.requestData?.bloodGroup,
-                  city: responseItem.requestData?.city
-                });
-              }
-            }
+
+            return data.responses
+              .map((response, index) => {
+                if (!hasEssentialResponseData(response, data)) {
+                  return null;
+                }
+
+                return {
+                  id: `${docSnapshot.id}_${index}`,
+                  requestId: docSnapshot.id,
+                  donorUid: response.donorUid || '',
+                  donorName: ensureText(response.donorName, 'Anonymous Donor'),
+                  donorMobile: ensureText(response.donorMobile, ''),
+                  donorBloodGroup: ensureText(response.donorBloodGroup || data.bloodGroup, 'Unknown'),
+                  donorCity: ensureText(response.donorCity || data.city, 'Not specified'),
+                  status: ensureText(response.status, 'pending'),
+                  respondedAt: response.respondedAt || new Date(),
+                  seenByReceiver: !!response.seenByReceiver,
+                  formattedResponseTime: formatDateTime(response.respondedAt) || 'Recently',
+                  requestData: {
+                    purpose: ensureText(data.purpose, 'Medical need'),
+                    bloodGroup: ensureText(data.bloodGroup, 'Unknown'),
+                    bloodUnits: ensureNumberText(data.bloodUnits, '1'),
+                    city: ensureText(data.city, 'Not specified'),
+                    hospital: ensureText(data.hospital, 'Not specified'),
+                    formattedRequiredTime: formatDateTime(data.requiredDateTime) || 'As soon as possible',
+                    status: ensureText(data.status, 'pending'),
+                  },
+                  isHighlighted:
+                    docSnapshot.id === route?.params?.highlightRequestId &&
+                    response.donorName === route?.params?.donorName &&
+                    response.status === route?.params?.status,
+                };
+              })
+              .filter(Boolean);
           });
-        });
-        
-        if (__DEV__) {
-          console.log('Total responses found:', allResponses.length, 'Unseen:', newCount);
-        }
 
-        if (allResponses.length === 0 && hasIncompleteDocs) {
-          if (__DEV__) {
-            console.log('Deferring receiver cards render until Firestore response data is complete');
-          }
-          if (responsesRef.current.length === 0) {
-            keepLoading = true;
-            setResponsesReady(false);
-            setResponsesLoading(true);
-          } else {
-            keepLoading = false;
-          }
-          return;
-        }
-        
-        // Sort responses by time (newest first)
-        allResponses.sort((a, b) => {
-          const aTime = a.respondedAt?.toDate ? a.respondedAt.toDate() : 
-                      (a.respondedAt ? new Date(a.respondedAt) : new Date(0));
-          const bTime = b.respondedAt?.toDate ? b.respondedAt.toDate() : 
-                      (b.respondedAt ? new Date(b.respondedAt) : new Date(0));
-          return bTime - aTime;
-        });
-        
-        // Force state update with new array reference
-        // Validate responses before setting state
-        const validatedResponses = allResponses.filter(item => {
-          const isValid = item && typeof item === 'object' && 
-                        (item.donorName || (item.requestData && 
-                         (item.requestData.bloodGroup || item.requestData.purpose)));
-          
-          if (!isValid && __DEV__) {
-            console.warn('⚠️ Filtering invalid response item:', JSON.stringify(item));
-          }
-          
-          return isValid;
-        });
-        
-        if (__DEV__) {
-          console.log(`Filtered responses: ${validatedResponses.length} valid of ${allResponses.length} total`);
-        }
+          const sorted = aggregated.sort((a, b) => {
+            const aTime = a.respondedAt?.toDate ? a.respondedAt.toDate() : new Date(a.respondedAt || 0);
+            const bTime = b.respondedAt?.toDate ? b.respondedAt.toDate() : new Date(b.respondedAt || 0);
+            return bTime - aTime;
+          });
 
-        if (validatedResponses.length === 0 && (allResponses.length > 0 || hasIncompleteDocs)) {
-          if (__DEV__) {
-            console.log('Validated responses empty, waiting for complete data before rendering');
-          }
-          if (responsesRef.current.length === 0) {
-            keepLoading = true;
-            setResponsesReady(false);
-            setResponsesLoading(true);
-          } else {
-            keepLoading = false;
-          }
-          return;
-        }
-        
-        // Set a minimum processing time to avoid quick flashing
-        const processEndTime = Date.now();
-        const minProcessTime = 300; // ms
-        const elapsedTime = processEndTime - (lastProcessStartTime.current || 0);
-        
-        if (elapsedTime < minProcessTime) {
-          await new Promise(resolve => setTimeout(resolve, minProcessTime - elapsedTime));
-        }
-        
-        setResponses([...validatedResponses]);
-        setNewNotificationCount(newCount);
-        setResponsesReady(true);
-      } catch (error) {
-        console.error('Error processing receiver notifications:', error);
-      } finally {
-        if (!keepLoading) {
+          setResponses(sorted);
+          setNewNotificationCount(sorted.filter((item) => !item.seenByReceiver).length);
+        } catch (listenerError) {
+          console.error('Error processing receiver notifications:', listenerError);
+          setResponses([]);
+        } finally {
+          setResponsesReady(true);
           setResponsesLoading(false);
         }
+      },
+      (error) => {
+        console.error('Error listening to receiver notifications:', error);
+        setResponses([]);
+        setResponsesReady(true);
+        setResponsesLoading(false);
       }
-    }, (error) => {
-      console.error('Error listening to receiver notifications:', error);
-      setResponsesReady(true);
-      setResponsesLoading(false);
-    });
-    
-    return () => unsubscribe();
+    );
+
+    return () => {
+      if (unsubscribe) {
+        unsubscribe();
+      }
+    };
   }, [userRole, auth.currentUser?.uid, route?.params]);
 
   // Helper function to format dates
@@ -928,7 +749,7 @@ export default function NotificationsScreen() {
   };
 
   // Loading state - only show on initial load
-  if (userLoading || !fontsLoaded) {
+  if (userLoading) {
     return (
       <View style={styles.centerContainer}>
         <ActivityIndicator size="large" color="#b71c1c" />
@@ -940,7 +761,7 @@ export default function NotificationsScreen() {
   if (userRole === 'donor' && !requestsReady) {
     return (
       <View style={styles.centerContainer}>
-        <ActivityIndicator size="large" color="#b71c1c" />
+        <ActivityIndicator size="large" color="\#b71c1c" />
         <Text style={styles.loadingText}>Preparing matches...</Text>
       </View>
     );
@@ -949,7 +770,7 @@ export default function NotificationsScreen() {
   if (userRole === 'receiver' && !responsesReady) {
     return (
       <View style={styles.centerContainer}>
-        <ActivityIndicator size="large" color="#b71c1c" />
+        <ActivityIndicator size="large" color="\#b71c1c" />
         <Text style={styles.loadingText}>Preparing responses...</Text>
       </View>
     );
@@ -985,9 +806,8 @@ export default function NotificationsScreen() {
         </View>
         
         {requestsLoading && requests.length === 0 ? (
-          <View style={styles.centerContainer}>
-            <ActivityIndicator size="large" color="#b71c1c" />
-            <Text style={styles.loadingText}>Loading notifications...</Text>
+          <View style={styles.listContent}>
+            {renderRequestSkeletons()}
           </View>
         ) : requests.length === 0 ? (
           <View style={styles.emptyContainer}>
@@ -1001,32 +821,9 @@ export default function NotificationsScreen() {
             extraData={requests.length} 
             keyExtractor={item => item?.id || `fallback-key-${Math.random()}`}
             renderItem={({ item, index }) => {
-              // Triple-check for valid item
               if (!item || typeof item !== 'object') {
                 console.warn('⚠️ Donor FlatList received invalid item:', item);
                 return null;
-              }
-              
-              // Additional defensive check for critical fields
-              const hasMinimalData = item.id && (item.bloodGroup || item.name);
-              if (!hasMinimalData) {
-                console.warn('⚠️ Donor card missing critical data:', JSON.stringify(item));
-                
-                // Return a fallback card with guaranteed content when data is corrupted
-                return (
-                  <View style={[styles.card, styles.requestCard]}>
-                    <View style={styles.cardHeader}>
-                      <View style={styles.urgentBadge}>
-                        <Text style={styles.urgentText}>BLOOD REQUEST</Text>
-                      </View>
-                    </View>
-                    <View style={styles.requestInfo}>
-                      <Text style={{padding: 20, textAlign: 'center'}}>
-                        Loading request details...
-                      </Text>
-                    </View>
-                  </View>
-                );
               }
               
               if (__DEV__) {
@@ -1167,9 +964,8 @@ export default function NotificationsScreen() {
       </View>
       
       {responsesLoading && responses.length === 0 ? (
-        <View style={styles.centerContainer}>
-          <ActivityIndicator size="large" color="#b71c1c" />
-          <Text style={styles.loadingText}>Loading responses...</Text>
+        <View style={styles.listContent}>
+          {renderResponseSkeletons()}
         </View>
       ) : responses.length === 0 ? (
         <View style={styles.emptyContainer}>
