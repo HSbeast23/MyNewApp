@@ -15,12 +15,11 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { useFonts, Poppins_400Regular, Poppins_600SemiBold, Poppins_700Bold } from '@expo-google-fonts/poppins';
-import useFirebaseOtp from '../hooks/useFirebaseOtp';
+import useOtp, { OTP_RESEND_INTERVAL_SECONDS } from '../hooks/useFirebaseOtp';
 
 export default function SignUpScreen() {
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
-  const [phoneNumber, setPhoneNumber] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [secureText, setSecureText] = useState(true);
@@ -29,7 +28,7 @@ export default function SignUpScreen() {
   const [loading, setLoading] = useState(false);
 
   const navigation = useNavigation();
-  const { sendCode } = useFirebaseOtp();
+  const { sendCode } = useOtp();
 
   let [fontsLoaded] = useFonts({
     Poppins_400Regular,
@@ -37,15 +36,15 @@ export default function SignUpScreen() {
     Poppins_700Bold,
   });
 
-  const handlePhoneChange = (value) => {
-    setPhoneNumber(value.replace(/[^0-9]/g, ''));
-  };
-
   const handleSendOtp = async () => {
-    const numericPhone = phoneNumber.replace(/[^0-9]/g, '');
-    const trimmedPhone = numericPhone.slice(-10);
-    if (!fullName || !email || !phoneNumber || !password || !confirmPassword) {
+    if (!fullName || !email || !password || !confirmPassword) {
       Alert.alert('Error', 'Please fill all fields');
+      return;
+    }
+    const normalizedEmail = email.trim().toLowerCase();
+    const emailRegex = /.+@.+\..+/;
+    if (!emailRegex.test(normalizedEmail)) {
+      Alert.alert('Error', 'Enter a valid email address');
       return;
     }
     if (!agree) {
@@ -60,22 +59,18 @@ export default function SignUpScreen() {
       Alert.alert('Error', 'Password must be at least 6 characters long');
       return;
     }
-    if (trimmedPhone.length !== 10) {
-      Alert.alert('Error', 'Enter a valid 10-digit Indian mobile number');
-      return;
-    }
 
     setLoading(true);
-    const formattedPhone = `+91${trimmedPhone}`;
     try {
-      const verificationId = await sendCode(formattedPhone);
+      await sendCode(normalizedEmail);
+      const otpExpiresAt = Date.now() + OTP_RESEND_INTERVAL_SECONDS * 1000;
 
       navigation.navigate('Otp', {
-        verificationId,
-        phoneNumber: formattedPhone,
+        email: normalizedEmail,
+        otpExpiresAt,
         formData: {
           fullName,
-          email,
+          email: normalizedEmail,
           password,
         },
       });
@@ -129,22 +124,6 @@ export default function SignUpScreen() {
             style={styles.input}
             keyboardType="email-address"
             autoCapitalize="none"
-          />
-        </View>
-
-        {/* Phone Number */}
-        <View style={styles.inputContainer}>
-          <Ionicons name="call-outline" size={20} color="#666" style={styles.inputIcon} />
-          <Text style={styles.countryCode}>+91</Text>
-          <View style={styles.divider} />
-          <TextInput
-            placeholder="10-digit mobile number"
-            placeholderTextColor="#888"
-            value={phoneNumber}
-            onChangeText={handlePhoneChange}
-            style={styles.input}
-            keyboardType="phone-pad"
-            maxLength={10}
           />
         </View>
 
@@ -257,18 +236,6 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontFamily: 'Poppins_400Regular',
     color: '#333',
-  },
-  countryCode: {
-    fontSize: 15,
-    fontFamily: 'Poppins_600SemiBold',
-    color: '#333',
-    marginRight: 6,
-  },
-  divider: {
-    width: 1,
-    height: 24,
-    backgroundColor: '#eee',
-    marginRight: 8,
   },
   eyeIcon: {
     padding: 5,

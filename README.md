@@ -125,16 +125,24 @@ _Preview of the BloodLink home experience showcasing curated donor cards and cri
 3. **Configure environment variables**
    ```bash
    cp .env.example .env
-   # Populate the .env file with Firebase keys, EXPO_PUBLIC_ADMIN_EMAIL, and EXPO_PUBLIC_ADMIN_PASSWORD
+   # Populate the .env file with Firebase keys, EXPO_PUBLIC_ADMIN_EMAIL, EXPO_PUBLIC_ADMIN_PASSWORD, and EXPO_PUBLIC_API_BASE_URL
    ```
-4. **Add Firebase configuration files**
+4. **Start the local OTP backend**
+   ```bash
+   cd backend
+   cp .env.example .env   # add MSG91 credentials here
+   npm install
+   npm run dev
+   ```
+   The backend listens on `http://localhost:4000` by default.
+5. **Add Firebase configuration files**
    - Place `google-services.json` in the project root (Android)
    - Download a Firebase service account if Cloud Functions are required and store it at `functions/serviceAccountKey.json`
-5. **Start the Expo development server**
+6. **Start the Expo development server**
    ```bash
    npm run start
    ```
-6. **Run the app**
+7. **Run the app**
    - Scan the QR code with Expo Go (Android) or the Camera app (iOS)
    - Use `a`/`i` within the terminal to launch Android/iOS simulators respectively
 
@@ -203,6 +211,43 @@ eas build -p ios --profile production
 - Configure Firestore security rules to enforce role-based access (`isAdmin`, `isDonor`, etc.)
 - Set up real-time listeners using Firestore `onSnapshot` for instant updates
 - (Optional) Deploy Cloud Functions for scheduled tasks and automated workflows
+
+---
+
+## 📡 OTP & SMS Delivery (MSG91)
+
+Firebase Phone Auth has been disabled to avoid billing for SMS. The mobile client now talks to your backend for OTP actions:
+
+- `POST /auth/sendOtp` – create a 6-digit OTP, persist it (phone, otp, expiresAt) and send via MSG91.
+- `POST /auth/verifyOtp` – validate the OTP, expire it, and respond with `{ success: true }` on match.
+- `POST /auth/resend` – enforce rate limits, rotate the OTP, and resend through MSG91 (set `retryType: "text"`).
+
+### Backend environment variables
+
+Add the following to your backend `.env` and keep them server-side only:
+
+```
+MSG91_AUTH_TOKEN=480137TKB7z22xFc69295876P1
+MSG91_TEMPLATE_ID=69298fd2857c56016447e663
+MSG91_SENDER_ID=BloodLink
+```
+
+Use the MSG91 v5 OTP API, e.g.:
+
+```http
+POST https://api.msg91.com/api/v5/otp
+Headers:
+   authkey: MSG91_AUTH_TOKEN
+Body:
+{
+   "template_id": MSG91_TEMPLATE_ID,
+   "sender": MSG91_SENDER_ID,
+   "mobile": "91XXXXXXXXXX",
+   "otp": "123456"
+}
+```
+
+> 🔐 Never expose the MSG91 credentials to the app; only the backend should call MSG91. The frontend simply hits `EXPO_PUBLIC_API_BASE_URL` for `/auth/sendOtp`, `/auth/verifyOtp`, and `/auth/resend`.
 
 ---
 

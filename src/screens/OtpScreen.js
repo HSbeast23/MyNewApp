@@ -12,13 +12,12 @@ import {
 } from 'react-native';
 import { useNavigation, useRoute, CommonActions } from '@react-navigation/native';
 import messaging from '@react-native-firebase/messaging';
-import nativeAuth from '@react-native-firebase/auth';
 import { createUserWithEmailAndPassword } from 'firebase/auth';
 import { doc, serverTimestamp, setDoc } from 'firebase/firestore';
 import { useFonts, Poppins_400Regular, Poppins_600SemiBold, Poppins_700Bold } from '@expo-google-fonts/poppins';
 
 import { auth as emailPasswordAuth, db } from '../services/auth';
-import useFirebaseOtp from '../hooks/useFirebaseOtp';
+import useOtp, { OTP_RESEND_INTERVAL_SECONDS } from '../hooks/useFirebaseOtp';
 
 const formatCountdown = (seconds) => {
   const minutes = Math.floor(seconds / 60)
@@ -32,7 +31,7 @@ const OtpScreen = () => {
   const navigation = useNavigation();
   const route = useRoute();
   const params = route.params || {};
-  const { verificationId, phoneNumber, formData } = params;
+  const { email, formData, otpExpiresAt } = params;
 
   const [otp, setOtp] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -45,15 +44,17 @@ const OtpScreen = () => {
     error,
     resendCode,
     verifyCode,
-    hydrateVerificationId,
     clearError,
-  } = useFirebaseOtp();
+    hydrateCountdown,
+  } = useOtp();
 
   useEffect(() => {
-    if (verificationId) {
-      hydrateVerificationId(verificationId);
+    if (!otpExpiresAt) return;
+    const remainingSeconds = Math.max(0, Math.ceil((otpExpiresAt - Date.now()) / 1000));
+    if (remainingSeconds > 0) {
+      hydrateCountdown(remainingSeconds);
     }
-  }, [verificationId, hydrateVerificationId]);
+  }, [otpExpiresAt, hydrateCountdown]);
 
   useEffect(() => {
     if (error) {
@@ -63,14 +64,16 @@ const OtpScreen = () => {
     }
   }, [error, clearError]);
 
-  const maskedPhoneNumber = useMemo(() => {
-    if (!phoneNumber) return '';
-    const tail = phoneNumber.slice(-4);
-    return `+91 ••••••${tail}`;
-  }, [phoneNumber]);
+  const maskedEmail = useMemo(() => {
+    if (!email) return '';
+    const [localPart, domain = ''] = email.split('@');
+    if (!localPart) return email;
+    const visible = localPart.slice(0, 2);
+    return `${visible}${'•'.repeat(Math.max(1, localPart.length - 2))}@${domain}`;
+  }, [email]);
 
   const handleVerify = async () => {
-    if (!verificationId || !phoneNumber || !formData) {
+    if (!email || !formData) {
       Alert.alert('Missing data', 'Return to signup and try again.');
       return;
     }
@@ -82,26 +85,22 @@ const OtpScreen = () => {
 
     setSubmitting(true);
     try {
-      await verifyCode(otp, verificationId);
+      await verifyCode(email, otp);
       const fcmToken = await messaging().getToken();
 
-      // Clear the temporary phone-auth session so email/password creation works as before
-      await nativeAuth().signOut();
-
-      const { fullName, email, password } = formData;
-      const userCredential = await createUserWithEmailAndPassword(emailPasswordAuth, email, password);
+      const { fullName, email: formEmail, password } = formData;
+      const userCredential = await createUserWithEmailAndPassword(emailPasswordAuth, formEmail, password);
 
       await setDoc(doc(db, 'users', userCredential.user.uid), {
         fullName,
-        email,
-        phoneNumber,
-        isPhoneVerified: true,
+        email: formEmail,
+        isEmailVerified: true,
         profileComplete: false,
         createdAt: serverTimestamp(),
         fcmToken,
       });
 
-      Alert.alert('Success', 'Phone verified and account created!', [
+      Alert.alert('Success', 'Email verified and account created!', [
         {
           text: 'Continue',
           onPress: () =>
@@ -111,7 +110,7 @@ const OtpScreen = () => {
                 routes: [
                   {
                     name: 'PersonalDetails',
-                    params: { fullName, email, phoneNumber },
+                    params: { fullName, email: formEmail },
                   },
                 ],
               })
@@ -126,12 +125,12 @@ const OtpScreen = () => {
   };
 
   const handleResend = async () => {
-    if (!phoneNumber) return;
+    if (!email) return;
     try {
-      const newId = await resendCode(phoneNumber);
-      hydrateVerificationId(newId);
+      await resendCode(email);
+      hydrateCountdown(OTP_RESEND_INTERVAL_SECONDS);
       setOtp('');
-      Alert.alert('OTP Sent', 'We have sent a new code to your number.');
+      Alert.alert('OTP Sent', 'We have emailed you a new code.');
     } catch (err) {
       Alert.alert('Resend failed', err.message || 'Unable to resend OTP right now.');
     }
@@ -145,7 +144,7 @@ const OtpScreen = () => {
     );
   }
 
-  if (!verificationId || !phoneNumber || !formData) {
+  if (!email || !formData) {
     return (
       <View style={styles.centerContainer}>
         <Text style={styles.errorText}>Missing verification details. Please restart the signup flow.</Text>
@@ -162,9 +161,9 @@ const OtpScreen = () => {
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
       <View style={styles.inner}>
-        <Text style={styles.title}>Verify Your Number</Text>
+        <Text style={styles.title}>Verify Your Email</Text>
         <Text style={styles.subtitle}>
-          Enter the 6-digit code sent to {maskedPhoneNumber}
+          Enter the 6-digit code sent to {maskedEmail}
         </Text>
 
         <TextInput

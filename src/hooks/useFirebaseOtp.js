@@ -1,33 +1,62 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import auth from '@react-native-firebase/auth';
 
-const RESEND_INTERVAL_SECONDS = 120;
+export const OTP_RESEND_INTERVAL_SECONDS = 120;
+const API_BASE_URL = process.env.EXPO_PUBLIC_API_BASE_URL || 'http://localhost:4000';
 
-const humanizeFirebaseError = (error) => {
-  if (!error) return 'Something went wrong. Please try again.';
-  const message = error.message || '';
-
-  switch (error.code) {
-    case 'auth/invalid-phone-number':
-      return 'The phone number is invalid. Please double-check and try again.';
-    case 'auth/too-many-requests':
-      return 'Too many attempts. Please wait a moment before trying again.';
-    case 'auth/quota-exceeded':
-      return 'SMS quota exceeded. Try again later or use a different number.';
-    case 'auth/invalid-verification-code':
-      return 'The OTP you entered is incorrect.';
-    case 'auth/code-expired':
-      return 'That OTP has expired. Please request a new one.';
-    default:
-      if (message.includes('timeout')) {
-        return 'Request timed out. Check your network connection and retry.';
-      }
-      return message || 'Unable to complete the request. Please try again.';
+const ensureApiAvailable = () => {
+  if (!API_BASE_URL) {
+    throw new Error('Server URL is not configured. Set EXPO_PUBLIC_API_BASE_URL.');
   }
 };
 
-const useFirebaseOtp = () => {
-  const [verificationId, setVerificationId] = useState(null);
+const postJson = async (endpoint, payload, timeoutMs = 20000) => {
+  ensureApiAvailable();
+  const controller = new AbortController();
+  const id = setTimeout(() => controller.abort(), timeoutMs);
+
+  try {
+    const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(payload),
+      signal: controller.signal,
+    });
+
+    let data = {};
+    try {
+      data = await response.json();
+    } catch (err) {
+      // Ignore JSON parse errors for empty bodies
+    }
+
+    if (!response.ok || data?.success === false) {
+      const fallbackMessage = `Server error (HTTP ${response.status})`;
+      const message = data?.message || fallbackMessage;
+      console.error('OTP API error', {
+        endpoint,
+        status: response.status,
+        body: data,
+      });
+      throw new Error(message);
+    }
+
+    return data;
+  } catch (err) {
+    if (err.name !== 'AbortError') {
+      console.error('OTP API request failed', { endpoint, payload, message: err.message });
+    }
+    if (err.name === 'AbortError') {
+      throw new Error('Request timed out. Check your connection and try again.');
+    }
+    throw err;
+  } finally {
+    clearTimeout(id);
+  }
+};
+
+const useOtp = () => {
   const [countdown, setCountdown] = useState(0);
   const [sending, setSending] = useState(false);
   const [verifying, setVerifying] = useState(false);
@@ -41,33 +70,59 @@ const useFirebaseOtp = () => {
     }
   }, []);
 
-  const startTimer = useCallback(() => {
-    clearTimer();
-    setCountdown(RESEND_INTERVAL_SECONDS);
-    timerRef.current = setInterval(() => {
-      setCountdown((prev) => {
-        if (prev <= 1) {
-          clearTimer();
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1000);
-  }, [clearTimer]);
+  const runTimer = useCallback(
+    (initialSeconds) => {
+      clearTimer();
+      if (!initialSeconds || initialSeconds <= 0) {
+        setCountdown(0);
+        return;
+      }
+
+      setCountdown(initialSeconds);
+      timerRef.current = setInterval(() => {
+        setCountdown((prev) => {
+          if (prev <= 1) {
+            clearTimer();
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+    },
+    [clearTimer]
+  );
+
+  const startTimer = useCallback(() => runTimer(OTP_RESEND_INTERVAL_SECONDS), [runTimer]);
+
+  const hydrateCountdown = useCallback(
+    (seconds) => {
+      if (typeof seconds !== 'number') return;
+      const safeValue = Math.max(0, Math.floor(seconds));
+      if (safeValue === 0) {
+        clearTimer();
+        setCountdown(0);
+        return;
+      }
+      runTimer(safeValue);
+    },
+    [runTimer, clearTimer]
+  );
 
   useEffect(() => () => clearTimer(), [clearTimer]);
 
-  const sendCode = useCallback(
-    async (phoneNumber) => {
+    const sendCode = useCallback(
+      async (email) => {
+        if (!email) {
+          throw new Error('Email is required.');
+        }
+
       setSending(true);
       setError(null);
       try {
-        const confirmation = await auth().signInWithPhoneNumber(phoneNumber);
-        setVerificationId(confirmation.verificationId);
+          await postJson('/auth/sendOtp', { email });
         startTimer();
-        return confirmation.verificationId;
       } catch (err) {
-        setError(humanizeFirebaseError(err));
+        setError(err.message);
         throw err;
       } finally {
         setSending(false);
@@ -76,37 +131,50 @@ const useFirebaseOtp = () => {
     [startTimer]
   );
 
-  const verifyCode = useCallback(
-    async (code, overrideVerificationId) => {
-      const activeId = overrideVerificationId || verificationId;
-      if (!activeId) {
-        throw new Error('Missing verification identifier. Please request a new OTP.');
-      }
+    const verifyCode = useCallback(async (email, otp) => {
+      if (!email) {
+        throw new Error('Email is required.');
+    }
+    if (!otp || otp.length !== 6) {
+      throw new Error('Enter the 6-digit OTP.');
+    }
 
-      setVerifying(true);
-      setError(null);
-      try {
-        const credential = auth.PhoneAuthProvider.credential(activeId, code);
-        const result = await auth().signInWithCredential(credential);
-        return result;
-      } catch (err) {
-        setError(humanizeFirebaseError(err));
-        throw err;
-      } finally {
-        setVerifying(false);
-      }
-    },
-    [verificationId]
-  );
+    setVerifying(true);
+    setError(null);
+    try {
+      const data = await postJson('/auth/verifyOtp', { email, otp });
+      return data;
+    } catch (err) {
+      setError(err.message);
+      throw err;
+    } finally {
+      setVerifying(false);
+    }
+  }, []);
 
   const resendCode = useCallback(
-    async (phoneNumber) => {
+    async (email) => {
       if (countdown > 0) {
-        return verificationId;
+        throw new Error('Please wait before requesting another OTP.');
       }
-      return sendCode(phoneNumber);
+
+      if (!email) {
+        throw new Error('Email is required.');
+      }
+
+      setSending(true);
+      setError(null);
+      try {
+        await postJson('/auth/resend', { email });
+        startTimer();
+      } catch (err) {
+        setError(err.message);
+        throw err;
+      } finally {
+        setSending(false);
+      }
     },
-    [countdown, sendCode, verificationId]
+    [countdown, startTimer]
   );
 
   return {
@@ -117,9 +185,9 @@ const useFirebaseOtp = () => {
     sendCode,
     verifyCode,
     resendCode,
-    hydrateVerificationId: setVerificationId,
     clearError: () => setError(null),
+    hydrateCountdown,
   };
 };
 
-export default useFirebaseOtp;
+export default useOtp;
