@@ -10,6 +10,7 @@ import LoginScreen from '../screens/LoginScreen';
 import PersonalDetailsScreen from '../screens/PersonalDetailsScreen';
 import AdminSetup from '../screens/admin/AdminSetup';
 import EnableLocationScreen from '../screens/EnableLocationScreen';
+import OtpScreen from '../screens/OtpScreen';
 
 // User and Admin Navigators
 import DrawerNavigator from './DrawerNavigator';
@@ -26,6 +27,7 @@ export default function AppNavigator() {
       <Stack.Screen name="Splash" component={SplashScreen} />
       {/* <Stack.Screen name="Welcome" component={WelcomeScreen} /> */}
       <Stack.Screen name="SignUp" component={SignUpScreen} />
+      <Stack.Screen name="Otp" component={OtpScreen} />
       <Stack.Screen name="Login" component={LoginScreen} />
       <Stack.Screen name="PersonalDetails" component={PersonalDetailsScreen} />
   <Stack.Screen name="EnableLocation" component={EnableLocationScreen} />

@@ -20,7 +20,6 @@ metro-cache/
 .metro-health-check*
 
 # Firebase credentials & sensitive files
-google-services.json
 serviceAccountKey.json
 serviceAccountKey.json.json
 GoogleService-Info.plist

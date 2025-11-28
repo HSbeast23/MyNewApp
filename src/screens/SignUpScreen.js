@@ -13,16 +13,14 @@ import {
   ScrollView,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useNavigation, CommonActions } from '@react-navigation/native';
+import { useNavigation } from '@react-navigation/native';
 import { useFonts, Poppins_400Regular, Poppins_600SemiBold, Poppins_700Bold } from '@expo-google-fonts/poppins';
-
-import { auth, db } from '../services/auth'; // Your firebase config exports
-import { createUserWithEmailAndPassword } from 'firebase/auth';
-import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
+import useFirebaseOtp from '../hooks/useFirebaseOtp';
 
 export default function SignUpScreen() {
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
+  const [phoneNumber, setPhoneNumber] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [secureText, setSecureText] = useState(true);
@@ -31,6 +29,7 @@ export default function SignUpScreen() {
   const [loading, setLoading] = useState(false);
 
   const navigation = useNavigation();
+  const { sendCode } = useFirebaseOtp();
 
   let [fontsLoaded] = useFonts({
     Poppins_400Regular,
@@ -38,8 +37,14 @@ export default function SignUpScreen() {
     Poppins_700Bold,
   });
 
-  const handleSignUp = async () => {
-    if (!fullName || !email || !password || !confirmPassword) {
+  const handlePhoneChange = (value) => {
+    setPhoneNumber(value.replace(/[^0-9]/g, ''));
+  };
+
+  const handleSendOtp = async () => {
+    const numericPhone = phoneNumber.replace(/[^0-9]/g, '');
+    const trimmedPhone = numericPhone.slice(-10);
+    if (!fullName || !email || !phoneNumber || !password || !confirmPassword) {
       Alert.alert('Error', 'Please fill all fields');
       return;
     }
@@ -55,35 +60,27 @@ export default function SignUpScreen() {
       Alert.alert('Error', 'Password must be at least 6 characters long');
       return;
     }
+    if (trimmedPhone.length !== 10) {
+      Alert.alert('Error', 'Enter a valid 10-digit Indian mobile number');
+      return;
+    }
 
     setLoading(true);
+    const formattedPhone = `+91${trimmedPhone}`;
     try {
-      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-      const user = userCredential.user;
+      const verificationId = await sendCode(formattedPhone);
 
-      // Save user info in Firestore with profileComplete false
-      await setDoc(doc(db, 'users', user.uid), {
-        fullName,
-        email,
-        profileComplete: false,  // This tells app profile is incomplete
-        createdAt: serverTimestamp(),
-      });
-
-      Alert.alert('Success', 'Account created! Please complete your profile.', [
-        {
-          text: 'OK',
-          onPress: () =>
-            navigation.dispatch(
-              CommonActions.reset({
-                index: 0,
-                routes: [{ name: 'PersonalDetails', params: { fullName, email } }],
-              })
-            ),
+      navigation.navigate('Otp', {
+        verificationId,
+        phoneNumber: formattedPhone,
+        formData: {
+          fullName,
+          email,
+          password,
         },
-      ]);
+      });
     } catch (error) {
-      console.log(error);
-      Alert.alert('Registration Failed', error.message);
+      Alert.alert('OTP Failed', error.message || 'Could not send OTP. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -135,6 +132,22 @@ export default function SignUpScreen() {
           />
         </View>
 
+        {/* Phone Number */}
+        <View style={styles.inputContainer}>
+          <Ionicons name="call-outline" size={20} color="#666" style={styles.inputIcon} />
+          <Text style={styles.countryCode}>+91</Text>
+          <View style={styles.divider} />
+          <TextInput
+            placeholder="10-digit mobile number"
+            placeholderTextColor="#888"
+            value={phoneNumber}
+            onChangeText={handlePhoneChange}
+            style={styles.input}
+            keyboardType="phone-pad"
+            maxLength={10}
+          />
+        </View>
+
         {/* Password */}
         <View style={styles.inputContainer}>
           <Ionicons name="lock-closed-outline" size={20} color="#666" style={styles.inputIcon} />
@@ -176,10 +189,10 @@ export default function SignUpScreen() {
         {/* Create Account Button */}
         <TouchableOpacity
           style={[styles.button, loading && styles.buttonDisabled]}
-          onPress={handleSignUp}
+          onPress={handleSendOtp}
           disabled={loading}
         >
-          {loading ? <ActivityIndicator color="#fff" size="small" /> : <Text style={styles.buttonText}>Create Account</Text>}
+          {loading ? <ActivityIndicator color="#fff" size="small" /> : <Text style={styles.buttonText}>Send OTP</Text>}
         </TouchableOpacity>
 
         {/* Login Link */}
@@ -212,7 +225,7 @@ const styles = StyleSheet.create({
     resizeMode: 'contain',
   },
   title: {
-    fontSize: 28,
+    fontSize: 24,
     fontFamily: 'Poppins_700Bold',
     marginBottom: 40,
     textAlign: 'center',
@@ -225,7 +238,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
     borderRadius: 12,
     paddingHorizontal: 15,
-    paddingVertical: 16,
+    paddingVertical: 12,
     marginBottom: 16,
     shadowColor: '#000',
     shadowOffset: {
@@ -241,9 +254,21 @@ const styles = StyleSheet.create({
   },
   input: {
     flex: 1,
-    fontSize: 16,
+    fontSize: 15,
     fontFamily: 'Poppins_400Regular',
     color: '#333',
+  },
+  countryCode: {
+    fontSize: 15,
+    fontFamily: 'Poppins_600SemiBold',
+    color: '#333',
+    marginRight: 6,
+  },
+  divider: {
+    width: 1,
+    height: 24,
+    backgroundColor: '#eee',
+    marginRight: 8,
   },
   eyeIcon: {
     padding: 5,

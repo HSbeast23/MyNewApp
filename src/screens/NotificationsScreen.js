@@ -8,13 +8,11 @@ import {
   RefreshControl,
   ActivityIndicator,
   FlatList,
-  Linking,
-  Platform
+  Linking
 } from 'react-native';
-import { MaterialIcons, FontAwesome5, Ionicons } from '@expo/vector-icons';
+import { FontAwesome5, Ionicons } from '@expo/vector-icons';
 import { collection, query, where, onSnapshot, updateDoc, doc, getDoc, getDocs, serverTimestamp, arrayUnion } from 'firebase/firestore';
 import { db, auth } from '../services/auth';
-import { useTranslation } from '../hooks/useTranslation';
 import { useNavigation, useRoute, useFocusEffect } from '@react-navigation/native';
 
 const skeletonPlaceholders = [0, 1];
@@ -59,7 +57,6 @@ const renderResponseSkeletons = () =>
   ));
 
 export default function NotificationsScreen() {
-  const { t } = useTranslation();
   const navigation = useNavigation();
   const route = useRoute();
   
@@ -144,9 +141,6 @@ export default function NotificationsScreen() {
   // Mark all notifications as seen when screen comes into focus
   useFocusEffect(
     useCallback(() => {
-      if (__DEV__) {
-        console.log('Screen focused, refreshing data...');
-      }
       if (userRole && auth.currentUser?.uid) {
         // Mark notifications as seen without showing loading state
         markAllAsSeen();
@@ -166,9 +160,6 @@ export default function NotificationsScreen() {
     // Debounce: only run if at least 3 seconds have passed since last call
     const now = Date.now();
     if (now - lastSeenMarkTime.current < 3000) {
-      if (__DEV__) {
-        console.log('markAllAsSeen debounced, skipping...');
-      }
       return;
     }
     lastSeenMarkTime.current = now;
@@ -203,9 +194,6 @@ export default function NotificationsScreen() {
         
         if (updatePromises.length > 0) {
           await Promise.all(updatePromises);
-          if (__DEV__) {
-            console.log(`Marked ${updatePromises.length} requests as seen`);
-          }
         }
       } else if (userRole === 'receiver') {
         // For receivers: mark all responses as seen
@@ -242,9 +230,6 @@ export default function NotificationsScreen() {
         
         if (updatePromises.length > 0) {
           await Promise.all(updatePromises);
-          if (__DEV__) {
-            console.log(`Updated ${updatePromises.length} requests with seen responses`);
-          }
         }
       }
       
@@ -258,9 +243,6 @@ export default function NotificationsScreen() {
   // Get user details on component mount
   useEffect(() => {
     const fetchUserDetails = async () => {
-      if (__DEV__) {
-        console.log('Fetching user details...');
-      }
       setUserLoading(true);
       
       // Only set loading states for initial load
@@ -277,9 +259,6 @@ export default function NotificationsScreen() {
       }
       const currentUser = auth.currentUser;
       if (!currentUser) {
-        if (__DEV__) {
-          console.log('No current user found');
-        }
         setUserLoading(false);
         setRequestsLoading(false);
         setResponsesLoading(false);
@@ -293,23 +272,14 @@ export default function NotificationsScreen() {
         
         if (userDoc.exists()) {
           const userData = userDoc.data();
-          if (__DEV__) {
-            console.log('User profile loaded:', userData.name, userData.bloodGroup, userData.city);
-          }
           setUserProfile(userData);
           setUserCity(userData.city || '');
           setUserBloodGroup(userData.bloodGroup || '');
           
           // Determine if user is donor or receiver based on most recent activity
           const isDonor = await checkUserIsDonor(currentUser.uid);
-          if (__DEV__) {
-            console.log('User role determined:', isDonor ? 'donor' : 'receiver');
-          }
           setUserRole(isDonor ? 'donor' : 'receiver');
         } else {
-          if (__DEV__) {
-            console.log('User document does not exist');
-          }
           setUserRole(null);
           setUserCity('');
           setUserBloodGroup('');
@@ -801,10 +771,6 @@ export default function NotificationsScreen() {
       });
     }
     
-    if (__DEV__) {
-      console.log('Screen focused, refreshing data...');
-    }
-    
     // Mark all as seen again without triggering loading state
     markAllAsSeen().finally(() => {
       setRefreshing(false);
@@ -885,12 +851,7 @@ export default function NotificationsScreen() {
             keyExtractor={item => item?.id || `fallback-key-${Math.random()}`}
             renderItem={({ item, index }) => {
               if (!item || typeof item !== 'object') {
-                console.warn('⚠️ Donor FlatList received invalid item:', item);
                 return null;
-              }
-              
-              if (__DEV__) {
-                console.log(`✅ Rendering donor match card[${index}]:`, item.id, 'isNew:', item.isNew);
               }
 
               const patientName = ensureText(item.name, 'Anonymous Patient');
@@ -1050,7 +1011,6 @@ export default function NotificationsScreen() {
           }
           renderItem={({ item, index }) => {
             if (!item || typeof item !== 'object') {
-              console.warn('⚠️ Receiver FlatList received invalid item:', item);
               return null;
             }
             
@@ -1061,8 +1021,6 @@ export default function NotificationsScreen() {
                                    item.requestData.purpose));
             
             if (!hasMinimalData) {
-              console.warn('⚠️ Receiver card missing critical data:', JSON.stringify(item));
-              
               // Return a fallback card with guaranteed content when data is corrupted
               return (
                 <View style={[styles.card, styles.responseCard]}>
@@ -1080,10 +1038,6 @@ export default function NotificationsScreen() {
               );
             }
             
-            if (__DEV__) {
-              console.log('✅ Rendering receiver response card:', item.id, 'status:', item.status, 'seen:', item.seenByReceiver);
-            }
-
             const donorName = ensureText(item.donorName, 'Anonymous Donor');
             const donorCity = ensureText(item.donorCity, '');
             const donorBloodGroup = ensureText(item.donorBloodGroup, '');

@@ -36,12 +36,16 @@
       "barStyle": "light-content",
       "backgroundColor": "#ffffff"
     },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
     "android": {
       "permissions": [
         "ACCESS_COARSE_LOCATION",
         "ACCESS_FINE_LOCATION"
       ],
-      "package": "com.haarhish23.MyNewApp",
+      "package": "com.haarhish.MyNewApp",
+      "googleServicesFile": "./google-services.json",
       "config": {
         "googleMaps": {
           "apiKey": "AIzaSyD1bqjTHy6PJGbWP8yz-XKGJ6ws18f4Xew"
@@ -49,14 +53,17 @@
       }
     },
     "ios": {
+      "googleServicesFile": "./GoogleService-Info.plist",
       "infoPlist": {
         "NSLocationWhenInUseUsageDescription": "BloodLink uses your location to show nearby donors and people who need blood.",
         "NSLocationAlwaysAndWhenInUseUsageDescription": "BloodLink uses your location to keep your availability updated for nearby donation requests."
       }
     },
-    "web": {
-      "favicon": "./assets/favicon.png"
-    },
+    "plugins": [
+      "@react-native-firebase/app",
+      "@react-native-firebase/auth",
+      "@react-native-firebase/messaging"
+    ],
     "extra": {
       "eas": {
         "projectId": "1248e7ca-b6b9-4f8b-b4cc-ac5944f6254a"
