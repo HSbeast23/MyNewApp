@@ -3,6 +3,9 @@ const cors = require('cors');
 const dotenv = require('dotenv');
 const nodemailer = require('nodemailer');
 const crypto = require('crypto');
+const path = require('path');
+const fs = require('fs');
+const admin = require('firebase-admin');
 
 dotenv.config();
 
@@ -26,6 +29,24 @@ const transporter = nodemailer.createTransport({
     pass: EMAIL_PASSWORD,
   },
 });
+
+// Firebase Admin (FCM)
+let messaging = null;
+try {
+  const serviceAccountPath = path.resolve(__dirname, '../../serviceAccountb.json');
+  if (fs.existsSync(serviceAccountPath)) {
+    const serviceAccount = require(serviceAccountPath);
+    admin.initializeApp({
+      credential: admin.credential.cert(serviceAccount),
+    });
+    messaging = admin.messaging();
+    console.log('[FCM] Firebase Admin initialized');
+  } else {
+    console.warn('[FCM] serviceAccountb.json not found. Push notifications disabled.');
+  }
+} catch (error) {
+  console.error('[FCM] Failed to initialize Firebase Admin', error.message);
+}
 
 const app = express();
 app.use(cors());
@@ -55,6 +76,20 @@ const sendOtpEmail = async (email, otp, subjectSuffix = 'OTP') => {
       <p>Your BloodLink OTP is: <b style="font-size:24px;color:#b71c1c;">${otp}</b></p>
       <p>Valid for 5 minutes. Do not share this with anyone.</p>
     `,
+  });
+};
+
+const sendFcmNotification = async ({ token, title, body, data }) => {
+  if (!messaging) {
+    throw new Error('Firebase Admin not configured on server');
+  }
+
+  return messaging.send({
+    token,
+    notification: { title, body },
+    data: data ? Object.fromEntries(Object.entries(data).map(([k, v]) => [k, String(v)])) : {},
+    android: { priority: 'high' },
+    apns: { headers: { 'apns-priority': '10' } },
   });
 };
 
@@ -148,6 +183,22 @@ app.post('/auth/resend', async (req, res) => {
   } catch (error) {
     console.error('[OTP] resend failed', error.message);
     res.status(500).json({ success: false, message: 'Failed to resend OTP' });
+  }
+});
+
+app.post('/notify', async (req, res) => {
+  const { token, title, body, data } = req.body || {};
+
+  if (!token || !title || !body) {
+    return res.status(400).json({ success: false, message: 'token, title and body are required' });
+  }
+
+  try {
+    const result = await sendFcmNotification({ token, title, body, data });
+    res.json({ success: true, result });
+  } catch (error) {
+    console.error('[FCM] notify failed', error.message);
+    res.status(500).json({ success: false, message: 'Failed to send push notification' });
   }
 });
 

@@ -26,6 +26,7 @@ GoogleService-Info.plist
 firebase-credentials.json
 firebase-adminsdk*.json
 functions/serviceAccountKey.json
+serviceAccountb.json
 
 # Keep example files
 !google-services.example.json

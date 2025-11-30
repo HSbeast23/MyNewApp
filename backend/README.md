@@ -17,6 +17,8 @@ MAX_ATTEMPTS_PER_OTP=5
 
 > ⚠️ Use an App Password when Gmail has 2FA enabled. Never commit the real `.env`.
 
+For push notifications, download your Firebase service account JSON, rename it to `serviceAccountb.json`, and place it in the project root (same level as `backend/`). This file is ignored via `.gitignore`; do **not** commit it.
+
 ## Getting Started
 
 ```bash
@@ -32,6 +34,7 @@ The server listens on `http://localhost:4000` by default. The React Native app s
 - `POST /auth/sendOtp` – body `{ email }`
 - `POST /auth/verifyOtp` – body `{ email, otp }`
 - `POST /auth/resend` – body `{ email }`
+- `POST /notify` – body `{ token, title, body, data? }` to trigger FCM push notifications
 - `GET /health` – simple health check
 
-Internally the server stores OTPs in memory with a 5-minute TTL. This is sufficient for local testing; for production use a persistent store (Redis/DB) and stronger rate limiting.
+Internally the server stores OTPs in memory with a 5-minute TTL. This is sufficient for local testing; for production use a persistent store (Redis/DB) and stronger rate limiting. FCM push delivery relies on `firebase-admin`; ensure `serviceAccountb.json` exists before calling `/notify`.
