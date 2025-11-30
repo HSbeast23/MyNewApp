@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 
 export const OTP_RESEND_INTERVAL_SECONDS = 120;
 const API_BASE_URL = process.env.EXPO_PUBLIC_API_BASE_URL || 'http://localhost:4000';
+const DEFAULT_TIMEOUT_MS = Number(process.env.EXPO_PUBLIC_API_TIMEOUT_MS) || 45000;
 
 const ensureApiAvailable = () => {
   if (!API_BASE_URL) {
@@ -9,7 +10,7 @@ const ensureApiAvailable = () => {
   }
 };
 
-const postJson = async (endpoint, payload, timeoutMs = 20000) => {
+const postJson = async (endpoint, payload, timeoutMs = DEFAULT_TIMEOUT_MS) => {
   ensureApiAvailable();
   const controller = new AbortController();
   const id = setTimeout(() => controller.abort(), timeoutMs);
@@ -47,9 +48,15 @@ const postJson = async (endpoint, payload, timeoutMs = 20000) => {
     if (err.name !== 'AbortError') {
       console.error('OTP API request failed', { endpoint, payload, message: err.message });
     }
+
     if (err.name === 'AbortError') {
-      throw new Error('Request timed out. Check your connection and try again.');
+      throw new Error('Server took too long to respond. Ensure the backend is running and reachable.');
     }
+
+    if (err.message === 'Network request failed') {
+      throw new Error('Unable to reach the OTP server. Confirm your phone and laptop share the same Wi-Fi and that port 4000 is allowed in the firewall.');
+    }
+
     throw err;
   } finally {
     clearTimeout(id);

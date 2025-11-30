@@ -15,7 +15,9 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { useFonts, Poppins_400Regular, Poppins_600SemiBold, Poppins_700Bold } from '@expo-google-fonts/poppins';
+import { fetchSignInMethodsForEmail } from 'firebase/auth';
 import useOtp, { OTP_RESEND_INTERVAL_SECONDS } from '../hooks/useFirebaseOtp';
+import { auth as emailPasswordAuth } from '../services/auth';
 
 export default function SignUpScreen() {
   const [fullName, setFullName] = useState('');
@@ -60,8 +62,15 @@ export default function SignUpScreen() {
       return;
     }
 
-    setLoading(true);
     try {
+      setLoading(true);
+
+      const methods = await fetchSignInMethodsForEmail(emailPasswordAuth, normalizedEmail);
+      if (methods.length > 0) {
+        Alert.alert('Email In Use', 'This email already has an account. Please log in instead.');
+        return;
+      }
+
       await sendCode(normalizedEmail);
       const otpExpiresAt = Date.now() + OTP_RESEND_INTERVAL_SECONDS * 1000;
 
@@ -75,7 +84,11 @@ export default function SignUpScreen() {
         },
       });
     } catch (error) {
-      Alert.alert('OTP Failed', error.message || 'Could not send OTP. Please try again.');
+      const friendlyMessage =
+        error?.code === 'auth/invalid-email'
+          ? 'Enter a valid email address.'
+          : error.message || 'Could not send OTP. Please try again.';
+      Alert.alert('OTP Failed', friendlyMessage);
     } finally {
       setLoading(false);
     }
