@@ -1,67 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { postJson } from '../services/backendClient';
 
 export const OTP_RESEND_INTERVAL_SECONDS = 120;
-const API_BASE_URL = process.env.EXPO_PUBLIC_API_BASE_URL || 'http://localhost:4000';
-const DEFAULT_TIMEOUT_MS = Number(process.env.EXPO_PUBLIC_API_TIMEOUT_MS) || 45000;
-
-const ensureApiAvailable = () => {
-  if (!API_BASE_URL) {
-    throw new Error('Server URL is not configured. Set EXPO_PUBLIC_API_BASE_URL.');
-  }
-};
-
-const postJson = async (endpoint, payload, timeoutMs = DEFAULT_TIMEOUT_MS) => {
-  ensureApiAvailable();
-  const controller = new AbortController();
-  const id = setTimeout(() => controller.abort(), timeoutMs);
-
-  try {
-    const response = await fetch(`${API_BASE_URL}${endpoint}`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(payload),
-      signal: controller.signal,
-    });
-
-    let data = {};
-    try {
-      data = await response.json();
-    } catch (err) {
-      // Ignore JSON parse errors for empty bodies
-    }
-
-    if (!response.ok || data?.success === false) {
-      const fallbackMessage = `Server error (HTTP ${response.status})`;
-      const message = data?.message || fallbackMessage;
-      console.error('OTP API error', {
-        endpoint,
-        status: response.status,
-        body: data,
-      });
-      throw new Error(message);
-    }
-
-    return data;
-  } catch (err) {
-    if (err.name !== 'AbortError') {
-      console.error('OTP API request failed', { endpoint, payload, message: err.message });
-    }
-
-    if (err.name === 'AbortError') {
-      throw new Error('Server took too long to respond. Ensure the backend is running and reachable.');
-    }
-
-    if (err.message === 'Network request failed') {
-      throw new Error('Unable to reach the OTP server. Confirm your phone and laptop share the same Wi-Fi and that port 4000 is allowed in the firewall.');
-    }
-
-    throw err;
-  } finally {
-    clearTimeout(id);
-  }
-};
 
 const useOtp = () => {
   const [countdown, setCountdown] = useState(0);

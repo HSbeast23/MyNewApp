@@ -14,6 +14,8 @@ import { FontAwesome5, Ionicons } from '@expo/vector-icons';
 import { collection, query, where, onSnapshot, updateDoc, doc, getDoc, getDocs, serverTimestamp, arrayUnion } from 'firebase/firestore';
 import { db, auth } from '../services/auth';
 import { useNavigation, useRoute, useFocusEffect } from '@react-navigation/native';
+import { sendPushNotification } from '../services/backendClient';
+import { fetchUserFcmToken } from '../services/userService';
 
 const skeletonPlaceholders = [0, 1];
 
@@ -109,6 +111,43 @@ export default function NotificationsScreen() {
     return hasStatus && (donorGroup || fallbackGroup);
   }, []);
   const lastSeenMarkTime = useRef(0);
+
+  const notifyReceiverAboutResponse = useCallback(
+    async ({ receiverUid, requestId, donorName, status }) => {
+      try {
+        if (!receiverUid) {
+          return;
+        }
+
+        const token = await fetchUserFcmToken(receiverUid);
+        if (!token) {
+          return;
+        }
+
+        const isAccepted = status === 'accepted';
+        const title = isAccepted
+          ? 'A donor accepted your request'
+          : 'Update on your blood request';
+        const body = isAccepted
+          ? `${donorName || 'A donor'} can donate ${userBloodGroup} blood in ${userCity}.`
+          : `${donorName || 'A donor'} is unavailable right now.`;
+
+        await sendPushNotification(token, {
+          title,
+          body,
+          data: {
+            type: 'donor_response',
+            requestId,
+            status,
+            donorName: donorName || 'A donor',
+          },
+        });
+      } catch (error) {
+        console.log('Failed to notify receiver about donor response', error);
+      }
+    },
+    [userBloodGroup, userCity]
+  );
   
   // Function to handle phone calls
   const handlePhoneCall = (phoneNumber) => {
@@ -653,6 +692,13 @@ export default function NotificationsScreen() {
                 status: 'accepted',
                 lastUpdated: serverTimestamp(),
               });
+
+              await notifyReceiverAboutResponse({
+                receiverUid: requestData.uid,
+                requestId,
+                donorName,
+                status: 'accepted',
+              });
               
               // Remove accepted request from local state immediately
               setRequests(prevRequests => prevRequests.filter(req => req.id !== requestId));
@@ -726,6 +772,13 @@ export default function NotificationsScreen() {
                 responses: arrayUnion(newResponse),
                 seenBy: arrayUnion(currentUser?.uid),
                 lastUpdated: serverTimestamp(),
+              });
+
+              await notifyReceiverAboutResponse({
+                receiverUid: requestData.uid,
+                requestId,
+                donorName,
+                status: 'declined',
               });
               
               // Remove declined request from local state immediately

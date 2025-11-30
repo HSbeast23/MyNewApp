@@ -12,6 +12,8 @@ import { useFonts } from 'expo-font';
 import { useTranslation } from '../hooks/useTranslation';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation } from '@react-navigation/native';
+import { sendPushNotification } from '../services/backendClient';
+import { fetchUserFcmToken } from '../services/userService';
 
 const tamilNaduCities = [
 "Chennai", "Coimbatore", "Madurai", "Tiruchirappalli", "Salem",
@@ -112,6 +114,64 @@ export default function RequestBloodScreen() {
     });
   };
 
+  const notifyMatchingDonors = async (requestId, requestData) => {
+    try {
+      const donorsQuery = query(
+        collection(db, 'BloodDonors'),
+        where('bloodGroup', '==', requestData.bloodGroup),
+        where('city', '==', requestData.city),
+        where('isActive', '==', true)
+      );
+
+      const donorsSnapshot = await getDocs(donorsQuery);
+      if (donorsSnapshot.empty) {
+        return;
+      }
+
+      const donorUids = donorsSnapshot.docs
+        .map((docSnap) => docSnap.data()?.uid)
+        .filter((uid) => uid && uid !== auth.currentUser?.uid);
+
+      if (donorUids.length === 0) {
+        return;
+      }
+
+      const tokenResults = await Promise.allSettled(donorUids.map((uid) => fetchUserFcmToken(uid)));
+      const uniqueTokens = [
+        ...new Set(
+          tokenResults
+            .map((result) => (result.status === 'fulfilled' ? result.value : null))
+            .filter((token) => typeof token === 'string' && token.length > 0)
+        ),
+      ];
+
+      if (uniqueTokens.length === 0) {
+        return;
+      }
+
+      const title = `Urgent ${requestData.bloodGroup} request in ${requestData.city}`;
+      const body = `${requestData.name} needs ${requestData.bloodUnits} unit(s) for ${requestData.purpose}.`;
+      const data = {
+        type: 'request_match',
+        requestId,
+        bloodGroup: requestData.bloodGroup,
+        city: requestData.city,
+      };
+
+      await Promise.allSettled(
+        uniqueTokens.map((token) =>
+          sendPushNotification(token, {
+            title,
+            body,
+            data,
+          })
+        )
+      );
+    } catch (notifyError) {
+      console.log('Failed to notify donors about new request', notifyError);
+    }
+  };
+
   const handleSubmit = async () => {
     // Prevent multiple rapid submissions
     if (loading) {
@@ -159,6 +219,8 @@ export default function RequestBloodScreen() {
       };
 
       const docRef = await addDoc(collection(db, 'Bloodreceiver'), requestData);
+
+      await notifyMatchingDonors(docRef.id, requestData);
 
       // Clear form data
       setForm({
