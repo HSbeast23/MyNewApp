@@ -1,7 +1,7 @@
 import React, { useRef, useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Dimensions, Alert } from 'react-native';
 import { Ionicons, MaterialIcons, FontAwesome5, MaterialCommunityIcons } from '@expo/vector-icons';
-import { collection, query, where, onSnapshot, getDocs, getDoc, doc } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, doc } from 'firebase/firestore';
 import { db, auth } from '../services/auth';
 import { useTranslation } from '../hooks/useTranslation';
 import ImageCarousel from '../components/ImageCarousel';
@@ -37,6 +37,8 @@ export default function HomeScreen({ navigation, route }) {
   const [userProfile, setUserProfile] = useState(null);
   const [notificationCount, setNotificationCount] = useState(0);
   const [hasNewNotification, setHasNewNotification] = useState(false);
+  const [receiverNotificationCount, setReceiverNotificationCount] = useState(0);
+  const [donorNotificationCount, setDonorNotificationCount] = useState(0);
   const [successMessage, setSuccessMessage] = useState('');
   const [showSuccessCard, setShowSuccessCard] = useState(false);
   const slidesRef = useRef(null);
@@ -66,108 +68,117 @@ export default function HomeScreen({ navigation, route }) {
 
   // Fetch real user data
   useEffect(() => {
-    const fetchUserData = async () => {
-      const user = auth.currentUser;
-      if (!user) return;
-
-      try {
-        // Get user profile
-        const userQuery = query(
-          collection(db, 'users'),
-          where('uid', '==', user.uid)
-        );
-        const userSnapshot = await getDocs(userQuery);
-
-        if (!userSnapshot.empty) {
-          setUserProfile(userSnapshot.docs[0].data());
-        } else {
-          // Try direct document access
-          const userDocRef = doc(db, 'users', user.uid);
-          const userDoc = await getDoc(userDocRef);
-          if (userDoc.exists()) {
-            setUserProfile(userDoc.data());
-          }
-        }
-      } catch (error) {
-        if (__DEV__) {
-          console.log('Error fetching user data:', error);
-        }
-      }
-    };
-
-    fetchUserData();
-  }, []);
-
-  // Listen for notifications
-  useEffect(() => {
     const user = auth.currentUser;
-    if (!user || !userProfile) return;
+    if (!user) {
+      setUserProfile(null);
+      return () => {};
+    }
 
-    let unsubscribe = () => { };
-
-    // Check if user is a donor or receiver and listen for relevant notifications
-    const setupNotificationListener = async () => {
-      try {
-        // Check if user has requests (receiver)
-        const requestsQuery = query(
-          collection(db, 'Bloodreceiver'),
-          where('uid', '==', user.uid)
-        );
-        const requestsSnapshot = await getDocs(requestsQuery);
-
-        if (!requestsSnapshot.empty) {
-          // User is a receiver - listen for donor responses
-          unsubscribe = onSnapshot(requestsQuery, (snapshot) => {
-            let newCount = 0;
-            snapshot.forEach((doc) => {
-              const data = doc.data();
-              if (data.responses && data.responses.length > 0) {
-                data.responses.forEach((response) => {
-                  if (!response.seenByReceiver) {
-                    newCount++;
-                  }
-                });
-              }
-            });
-            setNotificationCount(newCount);
-            setHasNewNotification(newCount > 0);
-          });
+    const userDocRef = doc(db, 'users', user.uid);
+    const unsubscribe = onSnapshot(
+      userDocRef,
+      (snapshot) => {
+        if (snapshot.exists()) {
+          setUserProfile(snapshot.data());
         } else {
-          // User is a donor - listen for matching requests
-          const donorQuery = query(
-            collection(db, 'Bloodreceiver'),
-            where('city', '==', userProfile.city),
-            where('bloodGroup', '==', userProfile.bloodGroup),
-            where('status', '==', 'pending')
-          );
-
-          unsubscribe = onSnapshot(donorQuery, (snapshot) => {
-            let newCount = 0;
-            snapshot.forEach((doc) => {
-              const data = doc.data();
-              const hasResponded = data.responses?.some(response => response.donorUid === user.uid);
-              if (!hasResponded) {
-                const requestTime = data.createdAt?.toDate();
-                if (requestTime && (Date.now() - requestTime.getTime()) < 24 * 60 * 60 * 1000) {
-                  newCount++;
-                }
-              }
-            });
-            setNotificationCount(newCount);
-            setHasNewNotification(newCount > 0);
-          });
+          setUserProfile(null);
         }
-      } catch (error) {
+      },
+      (error) => {
         if (__DEV__) {
-          console.log('Error setting up notification listener:', error);
+          console.log('Error listening for user data:', error);
         }
       }
-    };
-
-    setupNotificationListener();
+    );
 
     return () => unsubscribe();
-  }, [userProfile]);
+  }, [auth.currentUser?.uid]);
+
+  // Receiver notifications (responses to own requests)
+  useEffect(() => {
+    const user = auth.currentUser;
+    if (!user) {
+      setReceiverNotificationCount(0);
+      return () => {};
+    }
+
+    const requestsQuery = query(
+      collection(db, 'Bloodreceiver'),
+      where('uid', '==', user.uid)
+    );
+
+    const unsubscribe = onSnapshot(
+      requestsQuery,
+      (snapshot) => {
+        let newCount = 0;
+        snapshot.forEach((docSnapshot) => {
+          const data = docSnapshot.data();
+          if (data.responses && data.responses.length > 0) {
+            data.responses.forEach((response) => {
+              if (!response.seenByReceiver) {
+                newCount++;
+              }
+            });
+          }
+        });
+        setReceiverNotificationCount(newCount);
+      },
+      (error) => {
+        if (__DEV__) {
+          console.log('Error listening to receiver notifications:', error);
+        }
+      }
+    );
+
+    return () => unsubscribe();
+  }, [auth.currentUser?.uid]);
+
+  // Donor notifications (matching pending requests)
+  useEffect(() => {
+    const user = auth.currentUser;
+    if (!user || !userProfile?.city || !userProfile?.bloodGroup) {
+      setDonorNotificationCount(0);
+      return () => {};
+    }
+
+    const donorQuery = query(
+      collection(db, 'Bloodreceiver'),
+      where('city', '==', userProfile.city),
+      where('bloodGroup', '==', userProfile.bloodGroup),
+      where('status', '==', 'pending')
+    );
+
+    const unsubscribe = onSnapshot(
+      donorQuery,
+      (snapshot) => {
+        let newCount = 0;
+        snapshot.forEach((docSnapshot) => {
+          const data = docSnapshot.data();
+          const hasResponded = data.responses?.some((response) => response.donorUid === user.uid);
+          if (!hasResponded) {
+            const requestTime = data.createdAt?.toDate ? data.createdAt.toDate() : null;
+            if (!requestTime || (Date.now() - requestTime.getTime()) < 24 * 60 * 60 * 1000) {
+              newCount++;
+            }
+          }
+        });
+        setDonorNotificationCount(newCount);
+      },
+      (error) => {
+        if (__DEV__) {
+          console.log('Error listening to donor notifications:', error);
+        }
+      }
+    );
+
+    return () => unsubscribe();
+  }, [userProfile?.city, userProfile?.bloodGroup, auth.currentUser?.uid]);
+
+  useEffect(() => {
+    const total = receiverNotificationCount + donorNotificationCount;
+    setNotificationCount(total);
+    setHasNewNotification(total > 0);
+  }, [receiverNotificationCount, donorNotificationCount]);
 
   // Notification functionality removed for cleaner code
   // No need for these carousel-related functions since they're now handled by the ImageCarousel component

@@ -1,0 +1,52 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    match /users/{userId} {
+      allow read, update, delete: if signedIn() && request.auth.uid == userId;
+      allow create: if signedIn();
+    }
+
+    match /BloodDonors/{donorId} {
+      allow read: if signedIn();
+      allow create: if signedIn() && request.resource.data.uid == request.auth.uid;
+      allow update, delete: if signedIn() && resource.data.uid == request.auth.uid;
+    }
+
+    match /Bloodreceiver/{requestId} {
+      function isOwner() {
+        return signedIn() && resource.data.uid == request.auth.uid;
+      }
+
+      function donorAppendingOwnResponse() {
+        return signedIn() &&
+          request.resource.data.keys().hasOnly(['responses', 'seenBy', 'status', 'respondedBy', 'lastUpdated']) &&
+          request.resource.data.responses != null &&
+          resource.data.responses != null &&
+          request.resource.data.responses.size() == resource.data.responses.size() + 1 &&
+          request.resource.data.responses[request.resource.data.responses.size() - 1].donorUid == request.auth.uid;
+      }
+
+      function donorMarkingSeen() {
+        return signedIn() &&
+          request.resource.data.responses == resource.data.responses &&
+          request.resource.data.seenBy != null &&
+          resource.data.seenBy != null &&
+          request.resource.data.seenBy.size() == resource.data.seenBy.size() + 1 &&
+          request.resource.data.seenBy[request.resource.data.seenBy.size() - 1] == request.auth.uid;
+      }
+
+      allow read: if signedIn();
+      allow create: if signedIn() && request.resource.data.uid == request.auth.uid;
+      allow update: if isOwner() || donorAppendingOwnResponse() || donorMarkingSeen();
+      allow delete: if isOwner();
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

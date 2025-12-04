@@ -11,7 +11,7 @@ import {
   Linking
 } from 'react-native';
 import { FontAwesome5, Ionicons } from '@expo/vector-icons';
-import { collection, query, where, onSnapshot, updateDoc, doc, getDoc, getDocs, serverTimestamp, arrayUnion } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, updateDoc, doc, serverTimestamp, arrayUnion } from 'firebase/firestore';
 import { db, auth } from '../services/auth';
 import { useNavigation, useRoute, useFocusEffect } from '@react-navigation/native';
 import { sendPushNotification } from '../services/backendClient';
@@ -75,6 +75,13 @@ export default function NotificationsScreen() {
   const [responsesLoading, setResponsesLoading] = useState(true);
   const [requestsReady, setRequestsReady] = useState(false);
   const [responsesReady, setResponsesReady] = useState(false);
+  const [receiverDocs, setReceiverDocs] = useState([]);
+  const [hasReceiverRequests, setHasReceiverRequests] = useState(false);
+  const [donorProfile, setDonorProfile] = useState(null);
+  const [donorCity, setDonorCity] = useState('');
+  const [donorBloodGroup, setDonorBloodGroup] = useState('');
+  const matchingCity = donorCity || userCity;
+  const matchingBloodGroup = donorBloodGroup || userBloodGroup;
 
   const ensureText = useCallback((value, fallback) => {
     if (typeof value === 'string') {
@@ -204,167 +211,141 @@ export default function NotificationsScreen() {
     lastSeenMarkTime.current = now;
     
     try {
+      const currentUser = auth.currentUser;
+      if (!currentUser) {
+        return;
+      }
+
       if (userRole === 'donor') {
-        // For donors: mark blood requests as seen
-        const requestsQuery = query(
-          collection(db, 'Bloodreceiver'),
-          where('bloodGroup', '==', userBloodGroup),
-          where('city', '==', userCity),
-          where('status', '==', 'pending')
-        );
-        
-        const snapshot = await getDocs(requestsQuery);
-        
-        // Update each document that hasn't been seen by this donor
-        const updatePromises = [];
-        
-        snapshot.forEach((docSnapshot) => {
-          const data = docSnapshot.data();
-          const seenBy = data.seenBy || [];
-          
-          if (!seenBy.includes(auth.currentUser.uid)) {
-            updatePromises.push(
-              updateDoc(doc(db, 'Bloodreceiver', docSnapshot.id), {
-                seenBy: arrayUnion(auth.currentUser.uid)
+        const unseen = requests.filter((request) => request.isNew);
+        if (unseen.length) {
+          await Promise.all(
+            unseen.map((request) =>
+              updateDoc(doc(db, 'Bloodreceiver', request.id), {
+                seenBy: arrayUnion(currentUser.uid),
               })
-            );
-          }
-        });
-        
-        if (updatePromises.length > 0) {
-          await Promise.all(updatePromises);
+            )
+          );
         }
       } else if (userRole === 'receiver') {
-        // For receivers: mark all responses as seen
-        const requestsQuery = query(
-          collection(db, 'Bloodreceiver'),
-          where('uid', '==', auth.currentUser.uid)
-        );
-        
-        const snapshot = await getDocs(requestsQuery);
-        
-        // Update each request with unseen responses
-        const updatePromises = [];
-        
-        snapshot.forEach((docSnapshot) => {
-          const data = docSnapshot.data();
-          if (!data.responses || data.responses.length === 0) return;
-          
-          // Check for unseen responses
-          const hasUnseenResponses = data.responses.some(r => !r.seenByReceiver);
-          
-          if (hasUnseenResponses) {
-            const updatedResponses = data.responses.map(r => ({
-              ...r,
-              seenByReceiver: true
+        const receiverUpdates = receiverDocs
+          .map(({ id, data }) => {
+            if (!Array.isArray(data.responses) || data.responses.length === 0) {
+              return null;
+            }
+            const hasUnseenResponses = data.responses.some((response) => !response.seenByReceiver);
+            if (!hasUnseenResponses) {
+              return null;
+            }
+            const updatedResponses = data.responses.map((response) => ({
+              ...response,
+              seenByReceiver: true,
             }));
-            
-            updatePromises.push(
-              updateDoc(doc(db, 'Bloodreceiver', docSnapshot.id), {
-                responses: updatedResponses
-              })
-            );
-          }
-        });
-        
-        if (updatePromises.length > 0) {
-          await Promise.all(updatePromises);
+            return updateDoc(doc(db, 'Bloodreceiver', id), {
+              responses: updatedResponses,
+            });
+          })
+          .filter(Boolean);
+
+        if (receiverUpdates.length) {
+          await Promise.all(receiverUpdates);
         }
       }
-      
-      // Reset notification count
+
       setNewNotificationCount(0);
     } catch (error) {
       console.error('Error marking notifications as seen:', error);
     }
   };
 
-  // Get user details on component mount
+  // Live user profile listener
   useEffect(() => {
-    const fetchUserDetails = async () => {
-      setUserLoading(true);
-      
-      // Only set loading states for initial load
-      // For subsequent refreshes, we'll keep showing existing data
-      if (requests.length === 0) {
-        setRequestsLoading(true);
-      }
-      
-      if (responses.length === 0) {
-        setResponsesLoading(true);
-        
-        // Force brief loading display to avoid blank cards only on initial load
-        await new Promise(resolve => setTimeout(resolve, 300));
-      }
-      const currentUser = auth.currentUser;
-      if (!currentUser) {
-        setUserLoading(false);
-        setRequestsLoading(false);
-        setResponsesLoading(false);
-        return;
-      }
-      
-      try {
-        // Fetch user data
-        const userDocRef = doc(db, 'users', currentUser.uid);
-        const userDoc = await getDoc(userDocRef);
-        
-        if (userDoc.exists()) {
-          const userData = userDoc.data();
-          setUserProfile(userData);
-          setUserCity(userData.city || '');
-          setUserBloodGroup(userData.bloodGroup || '');
-          
-          // Determine if user is donor or receiver based on most recent activity
-          const isDonor = await checkUserIsDonor(currentUser.uid);
-          setUserRole(isDonor ? 'donor' : 'receiver');
+    const currentUser = auth.currentUser;
+    if (!currentUser) {
+      setUserProfile(null);
+      setUserCity('');
+      setUserBloodGroup('');
+      setUserLoading(false);
+      return () => {};
+    }
+
+    setUserLoading(true);
+    const userDocRef = doc(db, 'users', currentUser.uid);
+    const unsubscribe = onSnapshot(
+      userDocRef,
+      (snapshot) => {
+        if (snapshot.exists()) {
+          const data = snapshot.data();
+          setUserProfile(data);
+          setUserCity(data.city || '');
+          setUserBloodGroup(data.bloodGroup || '');
         } else {
-          setUserRole(null);
+          setUserProfile(null);
           setUserCity('');
           setUserBloodGroup('');
         }
-      } catch (error) {
-        console.error('Error fetching user details:', error);
-      } finally {
+        setUserLoading(false);
+      },
+      (error) => {
+        console.error('Error listening to user profile:', error);
         setUserLoading(false);
       }
-    };
-    
-    fetchUserDetails();
-  }, []);
-
-  // Check if user is primarily a donor
-  const checkUserIsDonor = async (userId) => {
-    // Check for blood requests (as receiver)
-    const receiverQuery = query(
-      collection(db, 'Bloodreceiver'),
-      where('uid', '==', userId)
     );
-    const receiverDocs = await getDocs(receiverQuery);
-    
-    // Check for donor profile
+
+    return () => unsubscribe();
+  }, [auth.currentUser?.uid]);
+
+  // Live donor profile listener (city/blood group for matching)
+  useEffect(() => {
+    const currentUser = auth.currentUser;
+    if (!currentUser) {
+      setDonorProfile(null);
+      setDonorCity('');
+      setDonorBloodGroup('');
+      return () => {};
+    }
+
     const donorQuery = query(
       collection(db, 'BloodDonors'),
-      where('uid', '==', userId)
+      where('uid', '==', currentUser.uid)
     );
-    const donorDocs = await getDocs(donorQuery);
-    
-    // If user has made more donations than requests, consider them a donor
-    // Or if they have a donor profile but no requests
-    if (donorDocs.size > 0 && (donorDocs.size >= receiverDocs.size || receiverDocs.size === 0)) {
-      return true;
+
+    const unsubscribe = onSnapshot(
+      donorQuery,
+      (snapshot) => {
+        if (!snapshot.empty) {
+          const donorDoc = snapshot.docs[0];
+          const donorData = { id: donorDoc.id, ...donorDoc.data() };
+          setDonorProfile(donorData);
+          setDonorCity(donorData.city || '');
+          setDonorBloodGroup(donorData.bloodGroup || '');
+        } else {
+          setDonorProfile(null);
+          setDonorCity('');
+          setDonorBloodGroup('');
+        }
+      },
+      (error) => {
+        console.error('Error listening to donor profile:', error);
+      }
+    );
+
+    return () => unsubscribe();
+  }, [auth.currentUser?.uid]);
+
+  useEffect(() => {
+    if (hasReceiverRequests) {
+      setUserRole('receiver');
+    } else if (donorProfile) {
+      setUserRole('donor');
+    } else {
+      setUserRole(null);
     }
-    
-    // Otherwise, consider them a receiver
-    return false;
-  };
+  }, [hasReceiverRequests, donorProfile]);
 
   // Listen for matching blood requests (for donors)
   useEffect(() => {
-    let unsubscribe;
-    let cancelled = false;
-
-    if (!userRole || userRole !== 'donor' || !userCity || !userBloodGroup || !auth.currentUser?.uid) {
+    if (!userRole || userRole !== 'donor' || !matchingCity || !matchingBloodGroup || !auth.currentUser?.uid) {
       setRequests([]);
       setNewNotificationCount(0);
       setRequestsLoading(false);
@@ -377,8 +358,8 @@ export default function NotificationsScreen() {
 
     const donorQuery = query(
       collection(db, 'Bloodreceiver'),
-      where('bloodGroup', '==', userBloodGroup),
-      where('city', '==', userCity),
+      where('bloodGroup', '==', matchingBloodGroup),
+      where('city', '==', matchingCity),
       where('status', '==', 'pending')
     );
 
@@ -424,74 +405,42 @@ export default function NotificationsScreen() {
           return aTime - bTime;
         });
 
-    const applySnapshot = (docs) => {
-      const formatted = buildDonorMatches(docs);
-      setRequests(formatted);
-      setNewNotificationCount(formatted.filter((item) => item.isNew).length);
-    };
-
-    const fetchInitial = async () => {
-      try {
-        const snapshot = await getDocs(donorQuery);
-        if (!cancelled) {
-          applySnapshot(snapshot.docs);
-          setRequestsReady(true);
-          setRequestsLoading(false);
-        }
-      } catch (error) {
-        if (!cancelled) {
-          console.error('Error preloading donor notifications:', error);
-          setRequests([]);
-          setRequestsReady(true);
-          setRequestsLoading(false);
-        }
-      }
-    };
-
-    fetchInitial();
-
-    unsubscribe = onSnapshot(
+    const unsubscribe = onSnapshot(
       donorQuery,
       (snapshot) => {
         try {
-          applySnapshot(snapshot.docs);
+          const formatted = buildDonorMatches(snapshot.docs);
+          setRequests(formatted);
+          setNewNotificationCount(formatted.filter((item) => item.isNew).length);
         } catch (listenerError) {
           console.error('Error processing donor notifications:', listenerError);
           setRequests([]);
         } finally {
-          if (!cancelled) {
-            setRequestsReady(true);
-            setRequestsLoading(false);
-          }
-        }
-      },
-      (error) => {
-        if (!cancelled) {
-          console.error('Error listening to donor notifications:', error);
-          setRequests([]);
           setRequestsReady(true);
           setRequestsLoading(false);
         }
+      },
+      (error) => {
+        console.error('Error listening to donor notifications:', error);
+        setRequests([]);
+        setRequestsReady(true);
+        setRequestsLoading(false);
       }
     );
 
     return () => {
-      cancelled = true;
-      if (unsubscribe) {
-        unsubscribe();
-      }
+      unsubscribe();
     };
-  }, [userRole, userCity, userBloodGroup, auth.currentUser?.uid, route?.params, ensureNumberText, ensureText, formatDateTime, hasEssentialRequestData]);
+  }, [userRole, matchingCity, matchingBloodGroup, auth.currentUser?.uid, route?.params, ensureNumberText, ensureText, formatDateTime, hasEssentialRequestData]);
 
   // Listen for donor responses (for receivers)
   useEffect(() => {
-    let unsubscribe;
-    let cancelled = false;
-
-    if (!userRole || userRole !== 'receiver' || !auth.currentUser?.uid) {
+    if (!auth.currentUser?.uid) {
       setResponses([]);
       setResponsesLoading(false);
       setResponsesReady(false);
+      setHasReceiverRequests(false);
+      setReceiverDocs([]);
       return () => {};
     }
 
@@ -509,6 +458,14 @@ export default function NotificationsScreen() {
         if (!Array.isArray(data.responses) || data.responses.length === 0) {
           return [];
         }
+
+        const patientName = ensureText(data.name || data.patientName, 'Anonymous Patient');
+        const patientCity = ensureText(data.city, 'Not specified');
+        const patientHospital = ensureText(data.hospital, 'Not specified');
+        const patientPurpose = ensureText(data.purpose, 'Medical need');
+        const patientUnits = ensureNumberText(data.bloodUnits, '1');
+        const patientBloodGroup = ensureText(data.bloodGroup, 'Unknown');
+        const patientMobile = ensureText(data.mobile, '');
 
         return data.responses
           .map((response, index) => {
@@ -529,11 +486,13 @@ export default function NotificationsScreen() {
               seenByReceiver: !!response.seenByReceiver,
               formattedResponseTime: formatDateTime(response.respondedAt) || 'Recently',
               requestData: {
-                purpose: ensureText(data.purpose, 'Medical need'),
-                bloodGroup: ensureText(data.bloodGroup, 'Unknown'),
-                bloodUnits: ensureNumberText(data.bloodUnits, '1'),
-                city: ensureText(data.city, 'Not specified'),
-                hospital: ensureText(data.hospital, 'Not specified'),
+                patientName,
+                contactMobile: patientMobile,
+                purpose: patientPurpose,
+                bloodGroup: patientBloodGroup,
+                bloodUnits: patientUnits,
+                city: patientCity,
+                hospital: patientHospital,
                 formattedRequiredTime: formatDateTime(data.requiredDateTime) || 'As soon as possible',
                 status: ensureText(data.status, 'pending'),
               },
@@ -546,72 +505,50 @@ export default function NotificationsScreen() {
           .filter(Boolean);
       });
 
-    const applySnapshot = (docs) => {
-      const sorted = buildReceiverResponses(docs).sort((a, b) => {
-        const aTime = a.respondedAt?.toDate ? a.respondedAt.toDate() : new Date(a.respondedAt || 0);
-        const bTime = b.respondedAt?.toDate ? b.respondedAt.toDate() : new Date(b.respondedAt || 0);
-        return bTime - aTime;
-      });
-
-      setResponses(sorted);
-      setNewNotificationCount(sorted.filter((item) => !item.seenByReceiver).length);
-    };
-
-    const fetchInitial = async () => {
-      try {
-        const snapshot = await getDocs(receiverQuery);
-        if (!cancelled) {
-          applySnapshot(snapshot.docs);
-          setResponsesReady(true);
-          setResponsesLoading(false);
-        }
-      } catch (error) {
-        if (!cancelled) {
-          console.error('Error preloading receiver notifications:', error);
-          setResponses([]);
-          setResponsesReady(true);
-          setResponsesLoading(false);
-        }
-      }
-    };
-
-    fetchInitial();
-
-    unsubscribe = onSnapshot(
+    const unsubscribe = onSnapshot(
       receiverQuery,
       (snapshot) => {
         try {
-          applySnapshot(snapshot.docs);
+          setHasReceiverRequests(!snapshot.empty);
+          const docPayload = snapshot.docs.map((docSnapshot) => ({
+            id: docSnapshot.id,
+            data: docSnapshot.data(),
+          }));
+          setReceiverDocs(docPayload);
+
+          const sorted = buildReceiverResponses(snapshot.docs).sort((a, b) => {
+            const aTime = a.respondedAt?.toDate ? a.respondedAt.toDate() : new Date(a.respondedAt || 0);
+            const bTime = b.respondedAt?.toDate ? b.respondedAt.toDate() : new Date(b.respondedAt || 0);
+            return bTime - aTime;
+          });
+
+          setResponses(sorted);
+          setNewNotificationCount(sorted.filter((item) => !item.seenByReceiver).length);
         } catch (listenerError) {
           console.error('Error processing receiver notifications:', listenerError);
           setResponses([]);
         } finally {
-          if (!cancelled) {
-            setResponsesReady(true);
-            setResponsesLoading(false);
-          }
-        }
-      },
-      (error) => {
-        if (!cancelled) {
-          console.error('Error listening to receiver notifications:', error);
-          setResponses([]);
           setResponsesReady(true);
           setResponsesLoading(false);
         }
+      },
+      (error) => {
+        console.error('Error listening to receiver notifications:', error);
+        setResponses([]);
+        setResponsesReady(true);
+        setResponsesLoading(false);
+        setHasReceiverRequests(false);
+        setReceiverDocs([]);
       }
     );
 
     return () => {
-      cancelled = true;
-      if (unsubscribe) {
-        unsubscribe();
-      }
+      unsubscribe();
     };
-  }, [userRole, auth.currentUser?.uid, route?.params, ensureNumberText, ensureText, formatDateTime, hasEssentialResponseData]);
+  }, [auth.currentUser?.uid, route?.params, ensureNumberText, ensureText, formatDateTime, hasEssentialResponseData]);
 
   // Helper function to format dates
-  const formatDateTime = (dateValue) => {
+  const formatDateTime = useCallback((dateValue) => {
     if (!dateValue) return null;
     
     try {
@@ -646,7 +583,7 @@ export default function NotificationsScreen() {
       console.log('Error formatting date:', err);
       return null;
     }
-  };
+  }, []);
 
   // Handle donor accepting a blood request
   const handleAccept = (requestId) => {
@@ -662,15 +599,13 @@ export default function NotificationsScreen() {
               const currentUser = auth.currentUser;
               const donorName = userProfile?.name || 'A donor';
               const donorMobile = userProfile?.mobile || userProfile?.phone || '';
-              
-              // Get request data
-              const requestDoc = await getDoc(doc(db, 'Bloodreceiver', requestId));
-              if (!requestDoc.exists()) {
-                Alert.alert('Error', 'Request not found');
+              const targetRequest = requests.find((req) => req.id === requestId);
+              const receiverUid = targetRequest?.uid;
+
+              if (!receiverUid) {
+                Alert.alert('Request Unavailable', 'This request is no longer active.');
                 return;
               }
-              
-              const requestData = requestDoc.data();
               
               // Create response
               const newResponse = {
@@ -678,7 +613,7 @@ export default function NotificationsScreen() {
                 donorName: donorName,
                 donorMobile: donorMobile,
                 status: 'accepted',
-                respondedAt: new Date(),
+                respondedAt: new Date().toISOString(),
                 seenByReceiver: false,
                 donorBloodGroup: userBloodGroup,
                 donorCity: userCity,
@@ -694,7 +629,7 @@ export default function NotificationsScreen() {
               });
 
               await notifyReceiverAboutResponse({
-                receiverUid: requestData.uid,
+                receiverUid,
                 requestId,
                 donorName,
                 status: 'accepted',
@@ -745,15 +680,13 @@ export default function NotificationsScreen() {
               const currentUser = auth.currentUser;
               const donorName = userProfile?.name || 'A donor';
               const donorMobile = userProfile?.mobile || userProfile?.phone || '';
-              
-              // Get request data
-              const requestDoc = await getDoc(doc(db, 'Bloodreceiver', requestId));
-              if (!requestDoc.exists()) {
-                Alert.alert('Error', 'Request not found');
+              const targetRequest = requests.find((req) => req.id === requestId);
+              const receiverUid = targetRequest?.uid;
+
+              if (!receiverUid) {
+                Alert.alert('Request Unavailable', 'This request is no longer active.');
                 return;
               }
-              
-              const requestData = requestDoc.data();
               
               // Create response
               const newResponse = {
@@ -761,7 +694,7 @@ export default function NotificationsScreen() {
                 donorName: donorName,
                 donorMobile: donorMobile,
                 status: 'declined',
-                respondedAt: new Date(),
+                respondedAt: new Date().toISOString(),
                 seenByReceiver: false,
                 donorBloodGroup: userBloodGroup,
                 donorCity: userCity,
@@ -775,7 +708,7 @@ export default function NotificationsScreen() {
               });
 
               await notifyReceiverAboutResponse({
-                receiverUid: requestData.uid,
+                receiverUid,
                 requestId,
                 donorName,
                 status: 'declined',
@@ -1053,7 +986,7 @@ export default function NotificationsScreen() {
       ) : (
         <FlatList
           data={responses}
-          extraData={responses.length}
+          extraData={responses}
           keyExtractor={item => item?.id || `fallback-key-${Math.random()}`}
           ListEmptyComponent={
             <View style={styles.emptyContainer}>
@@ -1102,6 +1035,8 @@ export default function NotificationsScreen() {
             const requestBloodGroup = ensureText(item.requestData?.bloodGroup, '');
             const requestUnits = ensureNumberText(item.requestData?.bloodUnits);
             const requiredTime = ensureText(item.requestData?.formattedRequiredTime, 'ASAP');
+            const patientName = ensureText(item.requestData?.patientName, 'Your request');
+            const patientContact = ensureText(item.requestData?.contactMobile, '');
 
             return (
             <View style={[
@@ -1133,6 +1068,7 @@ export default function NotificationsScreen() {
               
               <View style={styles.requestSummary}>
                 <Text style={styles.summaryTitle}>Your Request</Text>
+                <Text style={styles.summaryDetail}>Patient: {patientName}</Text>
                 <Text style={styles.summaryBloodType}>
                   {requestBloodGroup || 'N/A'} • {requestUnits} unit(s) • {requestCity || 'N/A'}
                 </Text>
@@ -1145,6 +1081,11 @@ export default function NotificationsScreen() {
                 {requestHospital ? (
                   <Text style={styles.summaryDetail}>
                     At: {requestHospital}
+                  </Text>
+                ) : null}
+                {patientContact ? (
+                  <Text style={styles.summaryDetail}>
+                    Contact: {patientContact}
                   </Text>
                 ) : null}
               </View>
