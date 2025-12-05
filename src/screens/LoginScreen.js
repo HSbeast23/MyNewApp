@@ -20,6 +20,7 @@ import { useFonts, Poppins_400Regular, Poppins_600SemiBold, Poppins_700Bold } fr
 import { auth, db } from '../services/auth';
 import { signInWithEmailAndPassword } from 'firebase/auth';
 import { doc, getDoc } from 'firebase/firestore';
+import { syncFcmTokenForCurrentUser } from '../hooks/useFcmTokenManager';
 
 export default function LoginScreen({ navigation }) {
   const [email, setEmail] = useState('');
@@ -48,6 +49,14 @@ export default function LoginScreen({ navigation }) {
       // Check if the user is an admin
       const userDoc = await getDoc(doc(db, 'users', user.uid));
       const userData = userDoc.data();
+
+      try {
+        await syncFcmTokenForCurrentUser();
+      } catch (tokenError) {
+        if (__DEV__) {
+          console.log('FCM sync failed after login:', tokenError);
+        }
+      }
       
       if (__DEV__) {
         console.log('Login successful!');

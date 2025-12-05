@@ -83,14 +83,31 @@ const sendFcmNotification = async ({ token, title, body, data }) => {
   if (!messaging) {
     throw new Error('Firebase Admin not configured on server');
   }
+  if (!token) {
+    throw new Error('Missing device token');
+  }
 
-  return messaging.send({
+  const payload = {
     token,
     notification: { title, body },
     data: data ? Object.fromEntries(Object.entries(data).map(([k, v]) => [k, String(v)])) : {},
     android: { priority: 'high' },
     apns: { headers: { 'apns-priority': '10' } },
-  });
+  };
+
+  const tokenTail = token.slice(-8);
+  try {
+    const messageId = await messaging.send(payload);
+    console.log('[FCM] Notification sent', { messageId, tokenTail, title });
+    return messageId;
+  } catch (error) {
+    console.error('[FCM] Notification failed', {
+      tokenTail,
+      code: error?.code,
+      message: error?.message,
+    });
+    throw error;
+  }
 };
 
 app.get('/health', (_req, res) => {

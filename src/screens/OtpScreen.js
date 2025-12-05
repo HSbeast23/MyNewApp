@@ -18,6 +18,7 @@ import { useFonts, Poppins_400Regular, Poppins_600SemiBold, Poppins_700Bold } fr
 
 import { auth as emailPasswordAuth, db } from '../services/auth';
 import useOtp, { OTP_RESEND_INTERVAL_SECONDS } from '../hooks/useFirebaseOtp';
+import { syncFcmTokenForCurrentUser } from '../hooks/useFcmTokenManager';
 
 const formatCountdown = (seconds) => {
   const minutes = Math.floor(seconds / 60)
@@ -99,6 +100,8 @@ const OtpScreen = () => {
         createdAt: serverTimestamp(),
         fcmToken,
       });
+
+      await syncFcmTokenForCurrentUser(fcmToken);
 
       Alert.alert('Success', 'Email verified and account created!', [
         {

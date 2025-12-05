@@ -8,6 +8,7 @@ import { Asset } from 'expo-asset';
 
 import AppNavigator from './src/navigation/AppNavigator';
 import { LanguageProvider } from './src/contexts/LanguageContext';
+import useFcmTokenManager from './src/hooks/useFcmTokenManager';
 
 SplashScreen.preventAutoHideAsync(); // Keep splash screen visible while loading
 
@@ -24,6 +25,7 @@ const theme = {
 export default function App() {
   const [appIsReady, setAppIsReady] = useState(false);
   const navigationRef = useRef(null);
+  useFcmTokenManager();
 
   // Load fonts
   const [fontsLoaded, fontError] = useFonts({
