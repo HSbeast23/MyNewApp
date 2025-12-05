@@ -117,6 +117,140 @@ export default function NotificationsScreen() {
     const hasStatus = typeof response.status === 'string' && response.status.trim().length > 0;
     return hasStatus && (donorGroup || fallbackGroup);
   }, []);
+  const formatDateTime = useCallback((dateValue) => {
+    if (!dateValue) return null;
+    try {
+      let dateObj;
+      if (dateValue.toDate && typeof dateValue.toDate === 'function') {
+        dateObj = dateValue.toDate();
+      } else if (dateValue instanceof Date) {
+        dateObj = dateValue;
+      } else if (typeof dateValue === 'string' || typeof dateValue === 'number') {
+        dateObj = new Date(dateValue);
+      }
+      if (dateObj instanceof Date && !isNaN(dateObj.getTime())) {
+        return (
+          dateObj.toLocaleDateString() +
+          ' at ' +
+          dateObj.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+        );
+      }
+      if (typeof dateValue === 'string' && dateValue.trim()) {
+        return dateValue;
+      }
+      return null;
+    } catch (err) {
+      console.log('Error formatting date:', err);
+      return null;
+    }
+  }, []);
+  const receiverDocListenersRef = useRef({});
+  const [receiverDocMap, setReceiverDocMap] = useState({});
+  const detachReceiverDocListeners = useCallback(() => {
+    Object.values(receiverDocListenersRef.current).forEach((unsubscribe) => {
+      try {
+        unsubscribe();
+      } catch (cleanupError) {
+        console.log('Error detaching receiver listener', cleanupError);
+      }
+    });
+    receiverDocListenersRef.current = {};
+    setReceiverDocMap({});
+  }, [setReceiverDocMap]);
+  const upsertReceiverDocEntry = useCallback((docId, data) => {
+    setReceiverDocMap((prev) => {
+      const next = { ...prev };
+      if (!data) {
+        if (next[docId]) {
+          delete next[docId];
+          return next;
+        }
+        return prev;
+      }
+
+      next[docId] = data;
+      return next;
+    });
+  }, [setReceiverDocMap]);
+  const buildReceiverResponses = useCallback(
+    (docs) => {
+      if (!Array.isArray(docs) || docs.length === 0) {
+        return [];
+      }
+
+      const highlightRequestId = route?.params?.highlightRequestId;
+      const highlightDonorName = route?.params?.donorName;
+      const highlightStatus = route?.params?.status;
+
+      return docs
+        .flatMap(({ id: docId, data }) => {
+          if (!data || !Array.isArray(data.responses) || data.responses.length === 0) {
+            return [];
+          }
+
+          const patientName = ensureText(data.name || data.patientName, 'Anonymous Patient');
+          const patientCity = ensureText(data.city, 'Not specified');
+          const patientHospital = ensureText(data.hospital, 'Not specified');
+          const patientPurpose = ensureText(data.purpose, 'Medical need');
+          const patientUnits = ensureNumberText(data.bloodUnits, '1');
+          const patientBloodGroup = ensureText(data.bloodGroup, 'Unknown');
+          const patientMobile = ensureText(data.mobile, '');
+
+          return data.responses
+            .map((response, index) => {
+              if (!hasEssentialResponseData(response, data)) {
+                return null;
+              }
+
+              const respondedAtValue = response.respondedAt || new Date();
+
+              return {
+                id: `${docId}_${index}`,
+                requestId: docId,
+                donorUid: response.donorUid || '',
+                donorName: ensureText(response.donorName, 'Anonymous Donor'),
+                donorMobile: ensureText(response.donorMobile, ''),
+                donorBloodGroup: ensureText(response.donorBloodGroup || data.bloodGroup, 'Unknown'),
+                donorCity: ensureText(response.donorCity || data.city, 'Not specified'),
+                status: ensureText(response.status, 'pending'),
+                respondedAt: respondedAtValue,
+                seenByReceiver: !!response.seenByReceiver,
+                formattedResponseTime: formatDateTime(respondedAtValue) || 'Recently',
+                requestData: {
+                  patientName,
+                  contactMobile: patientMobile,
+                  purpose: patientPurpose,
+                  bloodGroup: patientBloodGroup,
+                  bloodUnits: patientUnits,
+                  city: patientCity,
+                  hospital: patientHospital,
+                  formattedRequiredTime: formatDateTime(data.requiredDateTime) || 'As soon as possible',
+                  status: ensureText(data.status, 'pending'),
+                },
+                isHighlighted:
+                  docId === highlightRequestId &&
+                  response.donorName === highlightDonorName &&
+                  response.status === highlightStatus,
+              };
+            })
+            .filter(Boolean);
+        })
+        .sort((a, b) => {
+          const aTime = a.respondedAt?.toDate ? a.respondedAt.toDate() : new Date(a.respondedAt || 0);
+          const bTime = b.respondedAt?.toDate ? b.respondedAt.toDate() : new Date(b.respondedAt || 0);
+          return bTime - aTime;
+        });
+    },
+    [
+      ensureNumberText,
+      ensureText,
+      formatDateTime,
+      hasEssentialResponseData,
+      route?.params?.donorName,
+      route?.params?.highlightRequestId,
+      route?.params?.status,
+    ]
+  );
   const lastSeenMarkTime = useRef(0);
 
   const notifyReceiverAboutResponse = useCallback(
@@ -435,12 +569,15 @@ export default function NotificationsScreen() {
 
   // Listen for donor responses (for receivers)
   useEffect(() => {
-    if (!auth.currentUser?.uid) {
+    const currentUid = auth.currentUser?.uid;
+    if (!currentUid) {
+      detachReceiverDocListeners();
       setResponses([]);
       setResponsesLoading(false);
       setResponsesReady(false);
       setHasReceiverRequests(false);
       setReceiverDocs([]);
+      setReceiverDocMap({});
       return () => {};
     }
 
@@ -449,81 +586,66 @@ export default function NotificationsScreen() {
 
     const receiverQuery = query(
       collection(db, 'Bloodreceiver'),
-      where('uid', '==', auth.currentUser.uid)
+      where('uid', '==', currentUid)
     );
 
-    const buildReceiverResponses = (docs) =>
-      docs.flatMap((docSnapshot) => {
-        const data = docSnapshot.data();
-        if (!Array.isArray(data.responses) || data.responses.length === 0) {
-          return [];
+    const removeDocListener = (docId) => {
+      const unsubscribeDoc = receiverDocListenersRef.current[docId];
+      if (unsubscribeDoc) {
+        try {
+          unsubscribeDoc();
+        } catch (cleanupError) {
+          console.log('Error detaching receiver doc listener', cleanupError);
         }
+        delete receiverDocListenersRef.current[docId];
+      }
+      upsertReceiverDocEntry(docId, null);
+    };
 
-        const patientName = ensureText(data.name || data.patientName, 'Anonymous Patient');
-        const patientCity = ensureText(data.city, 'Not specified');
-        const patientHospital = ensureText(data.hospital, 'Not specified');
-        const patientPurpose = ensureText(data.purpose, 'Medical need');
-        const patientUnits = ensureNumberText(data.bloodUnits, '1');
-        const patientBloodGroup = ensureText(data.bloodGroup, 'Unknown');
-        const patientMobile = ensureText(data.mobile, '');
-
-        return data.responses
-          .map((response, index) => {
-            if (!hasEssentialResponseData(response, data)) {
-              return null;
-            }
-
-            return {
-              id: `${docSnapshot.id}_${index}`,
-              requestId: docSnapshot.id,
-              donorUid: response.donorUid || '',
-              donorName: ensureText(response.donorName, 'Anonymous Donor'),
-              donorMobile: ensureText(response.donorMobile, ''),
-              donorBloodGroup: ensureText(response.donorBloodGroup || data.bloodGroup, 'Unknown'),
-              donorCity: ensureText(response.donorCity || data.city, 'Not specified'),
-              status: ensureText(response.status, 'pending'),
-              respondedAt: response.respondedAt || new Date(),
-              seenByReceiver: !!response.seenByReceiver,
-              formattedResponseTime: formatDateTime(response.respondedAt) || 'Recently',
-              requestData: {
-                patientName,
-                contactMobile: patientMobile,
-                purpose: patientPurpose,
-                bloodGroup: patientBloodGroup,
-                bloodUnits: patientUnits,
-                city: patientCity,
-                hospital: patientHospital,
-                formattedRequiredTime: formatDateTime(data.requiredDateTime) || 'As soon as possible',
-                status: ensureText(data.status, 'pending'),
-              },
-              isHighlighted:
-                docSnapshot.id === route?.params?.highlightRequestId &&
-                response.donorName === route?.params?.donorName &&
-                response.status === route?.params?.status,
-            };
-          })
-          .filter(Boolean);
-      });
+    const attachDocListener = (docId) => {
+      const docRef = doc(db, 'Bloodreceiver', docId);
+      const unsubscribeDoc = onSnapshot(
+        docRef,
+        (docSnapshot) => {
+          upsertReceiverDocEntry(docId, docSnapshot.exists() ? docSnapshot.data() : null);
+        },
+        (docError) => {
+          console.error(`Error listening to receiver request ${docId}:`, docError);
+        }
+      );
+      receiverDocListenersRef.current[docId] = unsubscribeDoc;
+    };
 
     const unsubscribe = onSnapshot(
       receiverQuery,
       (snapshot) => {
         try {
-          setHasReceiverRequests(!snapshot.empty);
-          const docPayload = snapshot.docs.map((docSnapshot) => ({
-            id: docSnapshot.id,
-            data: docSnapshot.data(),
-          }));
-          setReceiverDocs(docPayload);
+          if (snapshot.empty) {
+            setHasReceiverRequests(false);
+            detachReceiverDocListeners();
+            setReceiverDocs([]);
+            setResponses([]);
+            setNewNotificationCount(0);
+            setReceiverDocMap({});
+          } else {
+            setHasReceiverRequests(true);
+            const currentDocIds = new Set();
 
-          const sorted = buildReceiverResponses(snapshot.docs).sort((a, b) => {
-            const aTime = a.respondedAt?.toDate ? a.respondedAt.toDate() : new Date(a.respondedAt || 0);
-            const bTime = b.respondedAt?.toDate ? b.respondedAt.toDate() : new Date(b.respondedAt || 0);
-            return bTime - aTime;
-          });
+            snapshot.docs.forEach((docSnapshot) => {
+              const docId = docSnapshot.id;
+              currentDocIds.add(docId);
+              upsertReceiverDocEntry(docId, docSnapshot.data());
+              if (!receiverDocListenersRef.current[docId]) {
+                attachDocListener(docId);
+              }
+            });
 
-          setResponses(sorted);
-          setNewNotificationCount(sorted.filter((item) => !item.seenByReceiver).length);
+            Object.keys(receiverDocListenersRef.current).forEach((docId) => {
+              if (!currentDocIds.has(docId)) {
+                removeDocListener(docId);
+              }
+            });
+          }
         } catch (listenerError) {
           console.error('Error processing receiver notifications:', listenerError);
           setResponses([]);
@@ -539,51 +661,35 @@ export default function NotificationsScreen() {
         setResponsesLoading(false);
         setHasReceiverRequests(false);
         setReceiverDocs([]);
+        detachReceiverDocListeners();
+        setReceiverDocMap({});
       }
     );
 
     return () => {
       unsubscribe();
+      detachReceiverDocListeners();
+      setReceiverDocMap({});
     };
-  }, [auth.currentUser?.uid, route?.params, ensureNumberText, ensureText, formatDateTime, hasEssentialResponseData]);
+  }, [auth.currentUser?.uid, detachReceiverDocListeners, upsertReceiverDocEntry]);
 
-  // Helper function to format dates
-  const formatDateTime = useCallback((dateValue) => {
-    if (!dateValue) return null;
-    
-    try {
-      let dateObj;
-      
-      // Handle Firestore timestamps
-      if (dateValue.toDate && typeof dateValue.toDate === 'function') {
-        dateObj = dateValue.toDate();
-      } 
-      // Handle Date objects
-      else if (dateValue instanceof Date) {
-        dateObj = dateValue;
-      }
-      // Handle string or number dates
-      else if (typeof dateValue === 'string' || typeof dateValue === 'number') {
-        dateObj = new Date(dateValue);
-      }
-      
-      // Return formatted date if valid
-      if (dateObj instanceof Date && !isNaN(dateObj.getTime())) {
-        return dateObj.toLocaleDateString() + ' at ' + 
-          dateObj.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
-      }
-      
-      // Return the original string if it's not a valid date but has content
-      if (typeof dateValue === 'string' && dateValue.trim()) {
-        return dateValue;
-      }
-      
-      return null;
-    } catch (err) {
-      console.log('Error formatting date:', err);
-      return null;
+  useEffect(() => {
+    const docEntries = Object.entries(receiverDocMap)
+      .filter(([, data]) => !!data)
+      .map(([id, data]) => ({ id, data }));
+
+    setReceiverDocs(docEntries);
+
+    if (!docEntries.length) {
+      setResponses([]);
+      setNewNotificationCount(0);
+      return;
     }
-  }, []);
+
+    const formatted = buildReceiverResponses(docEntries);
+    setResponses(formatted);
+    setNewNotificationCount(formatted.filter((item) => !item.seenByReceiver).length);
+  }, [receiverDocMap, buildReceiverResponses]);
 
   // Handle donor accepting a blood request
   const handleAccept = (requestId) => {
